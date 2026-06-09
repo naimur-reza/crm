@@ -1,0 +1,62 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { eq } from "drizzle-orm";
+import { requirePermission } from "@/lib/auth/permissions";
+import { requireUser } from "@/lib/auth/session";
+import { getDb } from "@/lib/db";
+import { employees } from "@/lib/db/schema";
+import { logAudit } from "@/lib/db/queries/audit";
+import { employeeSchema } from "@/lib/validation/employees";
+
+export async function createEmployee(formData: FormData) {
+  const user = await requireUser();
+  requirePermission(user.roles, "employees");
+
+  const parsed = employeeSchema.parse({
+    fullName: formData.get("fullName"),
+    email: formData.get("email"),
+    phone: formData.get("phone") || undefined,
+    designation: formData.get("designation"),
+    joiningDate: formData.get("joiningDate") || undefined,
+    userId: formData.get("userId") || "",
+  });
+
+  const [employee] = await getDb()
+    .insert(employees)
+    .values({
+      ...parsed,
+      userId: parsed.userId || null,
+    })
+    .returning({ id: employees.id });
+
+  await logAudit(user.id, "employee.created", "employee", employee.id, {
+    email: parsed.email,
+  });
+  revalidatePath("/employees");
+  revalidatePath("/dashboard");
+}
+
+export async function deactivateEmployee(formData: FormData) {
+  const user = await requireUser();
+  requirePermission(user.roles, "employees");
+
+  const id = String(formData.get("id"));
+  await getDb()
+    .update(employees)
+    .set({ status: "inactive", updatedAt: new Date() })
+    .where(eq(employees.id, id));
+  await logAudit(user.id, "employee.deactivated", "employee", id);
+  revalidatePath("/employees");
+}
+
+export async function deleteEmployee(formData: FormData) {
+  const user = await requireUser();
+  requirePermission(user.roles, "employees");
+
+  const id = String(formData.get("id"));
+  await getDb().delete(employees).where(eq(employees.id, id));
+  await logAudit(user.id, "employee.deleted", "employee", id);
+  revalidatePath("/employees");
+  revalidatePath("/dashboard");
+}
