@@ -8,10 +8,12 @@ import type { CurrentUser } from "@/lib/auth/session";
 export function DashboardShell({
   user,
   navGroups,
+  logoUrl,
   children,
 }: {
   user: CurrentUser;
   navGroups: SidebarGroup[];
+  logoUrl?: string | null;
   children: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(() => {
@@ -28,8 +30,8 @@ export function DashboardShell({
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-950">
-      <AppSidebar collapsed={collapsed} groups={navGroups} />
+    <div className="min-h-screen bg-background text-foreground">
+      <AppSidebar collapsed={collapsed} groups={navGroups} logoUrl={logoUrl} />
       <div
         className={`flex min-w-0 flex-1 flex-col transition-[padding-left] duration-200 ${
           collapsed ? "lg:pl-20" : "lg:pl-72"

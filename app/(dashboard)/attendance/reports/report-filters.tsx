@@ -39,12 +39,12 @@ export function ReportFilters({
 
   return (
     <form action={handleSubmit} className="flex flex-wrap items-end gap-4">
-      <div className="grid min-w-0 gap-2 text-sm font-medium text-slate-700">
+      <div className="grid min-w-0 gap-2 text-sm font-medium text-foreground">
         <span>Year</span>
         <select
           name="year"
           defaultValue={year}
-          className="h-11 w-28 rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-[#3995d2] focus:ring-2 focus:ring-[#3995d2]/15"
+          className="h-11 w-28 rounded-lg border border-border bg-card px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
         >
           {YEAR_OPTIONS.map((y) => (
             <option key={y} value={y}>
@@ -54,12 +54,12 @@ export function ReportFilters({
         </select>
       </div>
 
-      <div className="grid min-w-0 gap-2 text-sm font-medium text-slate-700">
+      <div className="grid min-w-0 gap-2 text-sm font-medium text-foreground">
         <span>Month</span>
         <select
           name="month"
           defaultValue={month}
-          className="h-11 w-36 rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-[#3995d2] focus:ring-2 focus:ring-[#3995d2]/15"
+          className="h-11 w-36 rounded-lg border border-border bg-card px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
         >
           {MONTH_NAMES.map((name, i) => (
             <option key={i + 1} value={i + 1}>
@@ -69,12 +69,12 @@ export function ReportFilters({
         </select>
       </div>
 
-      <div className="grid min-w-0 gap-2 text-sm font-medium text-slate-700">
+      <div className="grid min-w-0 gap-2 text-sm font-medium text-foreground">
         <span>Employee</span>
         <select
           name="employeeId"
           defaultValue={employeeId}
-          className="h-11 w-48 rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-[#3995d2] focus:ring-2 focus:ring-[#3995d2]/15"
+          className="h-11 w-48 rounded-lg border border-border bg-card px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
         >
           <option value="">All employees</option>
           {employees.map((emp) => (
@@ -85,12 +85,12 @@ export function ReportFilters({
         </select>
       </div>
 
-      <div className="grid min-w-0 gap-2 text-sm font-medium text-slate-700">
+      <div className="grid min-w-0 gap-2 text-sm font-medium text-foreground">
         <span>Status</span>
         <select
           name="status"
           defaultValue={status}
-          className="h-11 w-32 rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none transition focus:border-[#3995d2] focus:ring-2 focus:ring-[#3995d2]/15"
+          className="h-11 w-32 rounded-lg border border-border bg-card px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
         >
           <option value="">All</option>
           <option value="present">Present</option>
@@ -100,7 +100,7 @@ export function ReportFilters({
         </select>
       </div>
 
-      <button className="inline-flex h-11 items-center gap-2 rounded-lg bg-[#3995d2] px-5 text-sm font-semibold text-white transition hover:bg-[#2f80bd]">
+      <button className="inline-flex h-11 items-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/80">
         <Filter className="h-4 w-4" />
         Apply
       </button>

@@ -1,21 +1,33 @@
 import { redirect } from "next/navigation";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { recordPayment } from "@/app/actions/crm";
 import { DataTable } from "@/components/data-table";
 import { ModalForm } from "@/components/modal-form";
-import { PageHeader } from "@/components/page-header";
+import { Pagination } from "@/components/pagination";
 import { Money } from "@/components/ui/format";
 import { Field, Select, TextArea } from "@/components/ui/field";
+import { buildPagination, getPaginationParams } from "@/lib/pagination";
 import { canAccess } from "@/lib/auth/permissions";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { invoices, paymentRecords } from "@/lib/db/schema";
 
-export default async function PaymentsPage() {
+export default async function PaymentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>;
+}) {
   const user = await requireUser();
   if (!canAccess(user.roles, "crm")) redirect("/dashboard");
 
-  const [paymentRows, invoiceRows] = await Promise.all([
+  const { page, pageSize, offset } = getPaginationParams(await searchParams);
+
+  const [{ count }, paymentRows, invoiceRows] = await Promise.all([
+    getDb()
+      .select({ count: sql<number>`count(*)::int` })
+      .from(paymentRecords)
+      .innerJoin(invoices, eq(paymentRecords.invoiceId, invoices.id))
+      .then((r) => r[0]),
     getDb()
       .select({
         id: paymentRecords.id,
@@ -28,57 +40,60 @@ export default async function PaymentsPage() {
       })
       .from(paymentRecords)
       .innerJoin(invoices, eq(paymentRecords.invoiceId, invoices.id))
-      .orderBy(desc(paymentRecords.createdAt)),
+      .orderBy(desc(paymentRecords.createdAt))
+      .limit(pageSize)
+      .offset(offset),
     getDb()
       .select({ id: invoices.id, invoiceNumber: invoices.invoiceNumber, totalCents: invoices.totalCents })
       .from(invoices)
       .orderBy(desc(invoices.createdAt)),
   ]);
 
+  const pagination = buildPagination(page, pageSize, count);
+
   return (
     <div className="grid gap-6">
-      <PageHeader
-        title="Payments"
-        description="Manual client payment records connected to CRM invoices."
-        action={
-          <ModalForm
-            title="Record payment"
-            description="Record an offline or manual payment against an invoice."
-            triggerLabel="Record payment"
-            action={recordPayment}
-            submitLabel="Save payment"
-            formClassName="grid gap-x-6 gap-y-5 md:grid-cols-2"
-          >
-            <Select label="Invoice" name="invoiceId" required>
-              <option value="">Choose invoice</option>
-              {invoiceRows.map((invoice) => (
-                <option key={invoice.id} value={invoice.id}>
-                  {invoice.invoiceNumber}
-                </option>
-              ))}
-            </Select>
-            <Field label="Amount" name="amount" type="number" step="0.01" required />
-            <Field label="Payment date" name="paymentDate" type="date" required />
-            <Field label="Method" name="method" placeholder="Bank, cash, bKash, cheque" required />
-            <Field label="Reference" name="reference" />
-            <div className="md:col-span-2">
-              <TextArea label="Notes" name="notes" />
-            </div>
-          </ModalForm>
-        }
-      />
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-foreground">Payments</h2>
+        <ModalForm
+          title="Record payment"
+          description="Record a payment against an invoice."
+          triggerLabel="Record payment"
+          action={recordPayment}
+        >
+          <Select label="Invoice" name="invoiceId" required>
+            <option value="">Choose invoice</option>
+            {invoiceRows.map((inv) => (
+              <option key={inv.id} value={inv.id}>
+                {inv.invoiceNumber}
+              </option>
+            ))}
+          </Select>
+          <Field name="amount" label="Amount (USD)" type="number" step="0.01" required />
+          <Field name="paymentDate" label="Payment date" type="date" required />
+          <Select label="Method" name="method" required>
+            <option value="">Choose method</option>
+            <option value="cash">Cash</option>
+            <option value="bank_transfer">Bank transfer</option>
+            <option value="check">Check</option>
+            <option value="credit_card">Credit card</option>
+            <option value="mobile_banking">Mobile banking</option>
+          </Select>
+          <Field name="reference" label="Reference" />
+          <TextArea name="notes" label="Notes" />
+        </ModalForm>
+      </div>
+
       <DataTable
-        headers={["Invoice", "Amount", "Date", "Method", "Reference", "Notes"]}
+        headers={["Invoice", "Amount", "Date"]}
         empty="No payments recorded yet."
         rows={paymentRows.map((payment) => [
           payment.invoiceNumber,
           <Money key="amount" cents={payment.amountCents} />,
           payment.paymentDate,
-          payment.method,
-          payment.reference ?? "-",
-          payment.notes ?? "-",
         ])}
       />
+      <Pagination {...pagination} />
     </div>
   );
 }

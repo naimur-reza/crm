@@ -1,12 +1,16 @@
+import type { ComponentType } from "react";
+
 export function Badge({
   children,
   tone = "slate",
+  icon: Icon,
 }: {
   children: React.ReactNode;
   tone?: "slate" | "green" | "amber" | "red" | "blue" | "purple";
+  icon?: ComponentType<{ className?: string }>;
 }) {
   const tones = {
-    slate: "bg-slate-100 text-slate-700 ring-slate-200",
+    slate: "bg-muted text-muted-foreground ring-border",
     green: "bg-emerald-50 text-emerald-700 ring-emerald-200",
     amber: "bg-amber-50 text-amber-700 ring-amber-200",
     red: "bg-rose-50 text-rose-700 ring-rose-200",
@@ -15,7 +19,8 @@ export function Badge({
   };
 
   return (
-    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${tones[tone]}`}>
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${tones[tone]}`}>
+      {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
       {children}
     </span>
   );

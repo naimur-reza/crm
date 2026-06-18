@@ -61,7 +61,7 @@ export default async function PublicInvoicePage({
     <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950">
       <section className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#3995d2] text-white">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <FileText className="h-6 w-6" />
           </div>
           <div>
@@ -90,7 +90,7 @@ export default async function PublicInvoicePage({
 
         <Link
           href={pdfUrl}
-          className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#3995d2] px-4 text-sm font-semibold text-white transition hover:bg-[#2f80bd]"
+          className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:bg-primary/80"
         >
           <Download className="h-4 w-4" />
           Open PDF invoice

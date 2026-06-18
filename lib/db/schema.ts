@@ -6,6 +6,7 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -85,6 +86,39 @@ export const workOrderStatusEnum = pgEnum("work_order_status", [
   "cancelled",
 ]);
 
+export const chatGroupTypeEnum = pgEnum("chat_group_type", ["team", "group", "direct"]);
+
+export const chatGroups = pgTable(
+  "chat_groups",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: text("name").notNull(),
+    description: text("description"),
+    type: chatGroupTypeEnum("type").default("group").notNull(),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    avatarUrl: text("avatar_url"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+);
+
+export const chatGroupMembers = pgTable(
+  "chat_group_members",
+  {
+    groupId: uuid("group_id")
+      .references(() => chatGroups.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    role: text("role").default("member").notNull(),
+    joinedAt: timestamp("joined_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.groupId, table.userId] }),
+  }),
+);
+
 const timestamps = {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -97,6 +131,7 @@ export const users = pgTable(
     name: text("name").notNull(),
     email: text("email").notNull(),
     passwordHash: text("password_hash").notNull(),
+    avatarUrl: text("avatar_url"),
     status: userStatusEnum("status").default("active").notNull(),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
     ...timestamps,
@@ -543,6 +578,8 @@ export const auditLogs = pgTable(
   (table) => [index("audit_logs_actor_idx").on(table.actorUserId)],
 );
 
+export const chatMessageTypeEnum = pgEnum("chat_message_type", ["user", "system"]);
+
 export const chatMessages = pgTable(
   "chat_messages",
   {
@@ -550,15 +587,60 @@ export const chatMessages = pgTable(
     senderId: uuid("sender_id")
       .references(() => users.id, { onDelete: "set null" })
       .notNull(),
+    groupId: uuid("group_id")
+      .references(() => chatGroups.id, { onDelete: "cascade" }),
+    type: chatMessageTypeEnum("type").default("user").notNull(),
     content: text("content").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index("chat_messages_created_at_idx").on(table.createdAt)],
+  (table) => [
+    index("chat_messages_group_id_idx").on(table.groupId, table.createdAt),
+  ],
+);
+
+export const chatMessageReads = pgTable(
+  "chat_message_reads",
+  {
+    messageId: uuid("message_id")
+      .references(() => chatMessages.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    readAt: timestamp("read_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.messageId, table.userId] }),
+  }),
+);
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    type: text("type").notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    groupId: uuid("group_id").references(() => chatGroups.id, { onDelete: "cascade" }),
+    actorUserId: uuid("actor_user_id").references(() => users.id, { onDelete: "set null" }),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("notifications_user_idx").on(table.userId),
+    index("notifications_user_unread_idx").on(table.userId, table.readAt),
+  ],
 );
 
 export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
   userRoles: many(userRoles),
+  chatGroupMembers: many(chatGroupMembers),
+  chatMessages: many(chatMessages),
+  notifications: many(notifications, { relationName: "notifications" }),
 }));
 
 export const rolesRelations = relations(roles, ({ many }) => ({
@@ -617,3 +699,37 @@ export const leadsRelations = relations(leads, ({ one, many }) => ({
   invoices: many(invoices),
   workOrders: many(workOrders),
 }));
+
+export const chatGroupsRelations = relations(chatGroups, ({ one, many }) => ({
+  createdBy: one(users, { fields: [chatGroups.createdBy], references: [users.id] }),
+  members: many(chatGroupMembers),
+  messages: many(chatMessages),
+}));
+
+export const chatGroupMembersRelations = relations(chatGroupMembers, ({ one }) => ({
+  group: one(chatGroups, { fields: [chatGroupMembers.groupId], references: [chatGroups.id] }),
+  user: one(users, { fields: [chatGroupMembers.userId], references: [users.id] }),
+}));
+
+export const chatMessagesRelations = relations(chatMessages, ({ one, many }) => ({
+  sender: one(users, { fields: [chatMessages.senderId], references: [users.id] }),
+  group: one(chatGroups, { fields: [chatMessages.groupId], references: [chatGroups.id] }),
+  reads: many(chatMessageReads),
+}));
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(users, { fields: [notifications.userId], references: [users.id], relationName: "user" }),
+  actor: one(users, { fields: [notifications.actorUserId], references: [users.id] }),
+  group: one(chatGroups, { fields: [notifications.groupId], references: [chatGroups.id] }),
+}));
+
+export const siteSettings = pgTable("site_settings", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  companyName: text("company_name").default("Company").notNull(),
+  logoUrl: text("logo_url"),
+  primaryColor: text("primary_color").default("oklch(0.62 0.14 242)").notNull(),
+  fontFamily: text("font_family").default("Geist").notNull(),
+  theme: text("theme").default("light").notNull(),
+  updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});

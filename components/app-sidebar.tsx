@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   Building2,
@@ -65,14 +66,19 @@ const icons = {
   messageSquare: MessageSquare,
   reports: FileText,
   workOrders: ClipboardList,
-} satisfies Record<SidebarItem["iconName"], React.ComponentType<{ className?: string }>>;
+} satisfies Record<
+  SidebarItem["iconName"],
+  React.ComponentType<{ className?: string }>
+>;
 
 function isActiveRoute(pathname: string, href: string, allHrefs: string[]) {
   if (pathname === href) return true;
   if (!pathname.startsWith(`${href}/`)) return false;
 
   const hasMoreSpecificMatch = allHrefs.some(
-    (other) => other !== href && (other === pathname || pathname.startsWith(`${other}/`)),
+    (other) =>
+      other !== href &&
+      (other === pathname || pathname.startsWith(`${other}/`)),
   );
   return !hasMoreSpecificMatch;
 }
@@ -80,9 +86,11 @@ function isActiveRoute(pathname: string, href: string, allHrefs: string[]) {
 export function AppSidebar({
   collapsed,
   groups,
+  logoUrl,
 }: {
   collapsed: boolean;
   groups: SidebarGroup[];
+  logoUrl?: string | null;
 }) {
   const pathname = usePathname();
   const allHrefs = groups.flatMap((g) => g.items.map((i) => i.href));
@@ -93,25 +101,33 @@ export function AppSidebar({
         collapsed ? "w-20" : "w-72"
       }`}
     >
-      <div className="border-b border-white/10 px-4 py-5">
+      <div className="border-b border-white/10 px-4 py-5   flex justify-center">
         <div className="flex h-10 items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-sm font-black text-slate-950">
-            CT
-          </div>
-          {!collapsed ? (
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Company Tools
-              </p>
-              <h1 className="truncate text-lg font-semibold">Management</h1>
-            </div>
-          ) : null}
+          {logoUrl ? (
+            <Image
+              src={logoUrl}
+              alt="Logo"
+              width={collapsed ? 32 : 120}
+              height={32}
+              className={`shrink-0 ${collapsed ? "w-8" : "w-auto"}`}
+              priority
+            />
+          ) : (
+            <Image
+              src="/logo-sidebar.png"
+              alt="Company Tools"
+              width={collapsed ? 32 : 120}
+              height={32}
+              className={`shrink-0 ${collapsed ? "w-8" : "w-auto"}`}
+              priority
+            />
+          )}
         </div>
       </div>
       <nav className="space-y-4 px-3 py-4">
         {groups.map((group) => {
-          const hasActiveChild = group.items.some(
-            (item) => isActiveRoute(pathname, item.href, allHrefs),
+          const hasActiveChild = group.items.some((item) =>
+            isActiveRoute(pathname, item.href, allHrefs),
           );
           return (
             <details key={group.label} open={!collapsed && hasActiveChild}>
@@ -120,8 +136,14 @@ export function AppSidebar({
                   collapsed ? "justify-center px-0" : ""
                 }`}
               >
-                {!collapsed ? <span>{group.label}</span> : <span>{group.label[0]}</span>}
-                {!collapsed ? <ChevronDown className="h-4 w-4" /> : null}
+                {!collapsed ? (
+                  <span>{group.label}</span>
+                ) : (
+                  <span>{group.label[0]}</span>
+                )}
+                {!collapsed ? (
+                  <ChevronDown className="h-4 w-4 transition-transform duration-200" />
+                ) : null}
               </summary>
               <div className="mt-1 space-y-1">
                 {group.items.map((item) => {
@@ -132,13 +154,22 @@ export function AppSidebar({
                       key={item.href}
                       href={item.href}
                       title={collapsed ? item.label : undefined}
-                      className={`flex h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition ${
+                      className={`group relative flex h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-all duration-200 ${
                         active
-                          ? "bg-white text-slate-950"
+                          ? "bg-blue-500/10 text-white"
                           : "text-slate-300 hover:bg-white/10 hover:text-white"
                       } ${collapsed ? "justify-center" : ""}`}
                     >
-                      <Icon className="h-5 w-5 shrink-0" />
+                      {active ? (
+                        <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-primary" />
+                      ) : null}
+                      <Icon
+                        className={`h-5 w-5 shrink-0 transition-all duration-200 ${
+                          active
+                            ? "text-primary"
+                            : "text-slate-400 group-hover:text-white"
+                        }`}
+                      />
                       {!collapsed ? <span>{item.label}</span> : null}
                     </Link>
                   );

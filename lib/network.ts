@@ -13,8 +13,10 @@ function isIpInRange(ip: string, range: string): boolean {
 }
 
 export function isOfficeNetwork(clientIp: string): boolean {
+  if (process.env.DISABLE_OFFICE_NETWORK_CHECK === "1") return true;
+
   const ranges = process.env.OFFICE_IP_RANGES;
-  if (!ranges) return true;
+  if (!ranges) return false;
 
   const ips = clientIp.split(",").map((ip) => ip.trim());
 
@@ -26,4 +28,17 @@ export function isOfficeNetwork(clientIp: string): boolean {
     }
     return ips.some((ip) => isIpInRange(ip, trimmed));
   });
+}
+
+export function extractClientIp(headerList: { get(name: string): string | null }): string {
+  const realIp = headerList.get("x-real-ip");
+  if (realIp) return realIp;
+
+  const forwarded = headerList.get("x-forwarded-for");
+  if (forwarded) {
+    const ips = forwarded.split(",").map((ip) => ip.trim());
+    return ips[ips.length - 1];
+  }
+
+  return "unknown";
 }

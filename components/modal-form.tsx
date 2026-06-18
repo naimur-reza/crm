@@ -4,12 +4,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, Loader2, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { formatError } from "@/lib/format-error";
 
 export function ModalForm({
   title,
   description,
   triggerLabel,
   triggerIcon,
+  triggerVariant,
+  triggerSize,
   triggerClassName,
   action,
   submitLabel,
@@ -20,6 +24,8 @@ export function ModalForm({
   description: string;
   triggerLabel: string;
   triggerIcon?: React.ReactNode;
+  triggerVariant?: "default" | "outline" | "secondary" | "ghost" | "destructive" | "link";
+  triggerSize?: "default" | "xs" | "sm" | "lg" | "icon" | "icon-xs" | "icon-sm" | "icon-lg";
   triggerClassName?: string;
   action?: (formData: FormData) => Promise<void>;
   submitLabel?: string;
@@ -55,7 +61,7 @@ export function ModalForm({
       toast.success(`${submitLabel ?? triggerLabel} saved.`);
       router.refresh();
     } catch (caught) {
-      const message = caught instanceof Error ? caught.message : "Something went wrong.";
+      const message = formatError(caught);
       setError(message);
       toast.error(message);
     } finally {
@@ -80,20 +86,19 @@ export function ModalForm({
 
   return (
     <>
-      <button
+      <Button
         type="button"
         onClick={() => setOpen(true)}
-        className={
-          triggerClassName ??
-          "inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#3995d2] px-4 text-sm font-semibold text-white transition hover:bg-[#2f80bd]"
-        }
+        variant={triggerVariant}
+        size={triggerSize}
+        className={triggerClassName}
       >
         {triggerIcon ?? <Plus className="h-4 w-4" />}
         {triggerLabel}
-      </button>
+      </Button>
       {open ? (
         <div
-          className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 grid place-items-center bg-foreground/50 p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-labelledby="modal-title"
@@ -101,17 +106,17 @@ export function ModalForm({
             if (event.target === event.currentTarget) closeModal();
           }}
         >
-          <div className="max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/20">
-            <div className="flex items-start justify-between gap-5 border-b border-slate-200 bg-slate-50/80 px-6 py-5 sm:px-7">
+          <div className="max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-2xl border border-border bg-card shadow-2xl shadow-foreground/20">
+            <div className="flex items-start justify-between gap-5 border-b border-border bg-muted/80 px-6 py-5 sm:px-7">
               <div className="flex min-w-0 gap-4">
-                <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#3995d2] text-white">
+                <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-white">
                   <Plus className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
-                  <h2 id="modal-title" className="text-xl font-semibold text-slate-950">
+                  <h2 id="modal-title" className="text-xl font-semibold text-foreground">
                     {title}
                   </h2>
-                  <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">
+                  <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
                     {description}
                   </p>
                 </div>
@@ -121,7 +126,7 @@ export function ModalForm({
                 type="button"
                 onClick={closeModal}
                 disabled={pending}
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-100 hover:text-slate-950"
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition hover:bg-accent hover:text-foreground"
                 aria-label="Close modal"
               >
                 <X className="h-4 w-4" />
@@ -139,22 +144,14 @@ export function ModalForm({
                       <span>{error}</span>
                     </div>
                   ) : null}
-                  <div className="sticky bottom-0 flex items-center justify-end gap-3 border-t border-slate-200 bg-white px-6 py-4 sm:px-7">
-                    <button
-                      type="button"
-                      onClick={closeModal}
-                      disabled={pending}
-                      className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
+                  <div className="sticky bottom-0 flex items-center justify-end gap-3 border-t border-border bg-card px-6 py-4 sm:px-7">
+                    <Button type="button" variant="outline" onClick={closeModal} disabled={pending}>
                       Cancel
-                    </button>
-                    <button
-                      disabled={pending}
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#3995d2] px-4 text-sm font-semibold text-white transition hover:bg-[#2f80bd] disabled:cursor-not-allowed disabled:opacity-60"
-                    >
+                    </Button>
+                    <Button type="submit" disabled={pending}>
                       {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                       {pending ? "Saving..." : submitLabel ?? triggerLabel}
-                    </button>
+                    </Button>
                   </div>
                 </form>
               ) : (

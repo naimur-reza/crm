@@ -1,3 +1,4 @@
+import { FileQuestion } from "lucide-react";
 import type { ReactNode } from "react";
 
 export function DataTable({
@@ -10,27 +11,32 @@ export function DataTable({
   empty: string;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md">
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-slate-200 text-sm">
-          <thead className="bg-slate-50">
-            <tr>
+        <table className="min-w-full divide-y divide-border text-sm">
+          <thead>
+            <tr className="bg-gradient-to-r from-muted to-card">
               {headers.map((header) => (
                 <th
                   key={header}
-                  className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
+                  className="sticky top-0 z-10 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground"
                 >
                   {header}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-border">
             {rows.length ? (
               rows.map((row, index) => (
-                <tr key={index} className="align-top">
+                <tr
+                  key={index}
+                  className={`align-top transition ${
+                    index % 2 === 0 ? "bg-card" : "bg-muted/50"
+                  } hover:bg-blue-50/40`}
+                >
                   {row.map((cell, cellIndex) => (
-                    <td key={cellIndex} className="px-4 py-4 text-slate-700">
+                    <td key={cellIndex} className="px-4 py-4 text-muted-foreground">
                       {cell}
                     </td>
                   ))}
@@ -38,8 +44,11 @@ export function DataTable({
               ))
             ) : (
               <tr>
-                <td className="px-4 py-8 text-center text-slate-500" colSpan={headers.length}>
-                  {empty}
+                <td className="px-4 py-16 text-center" colSpan={headers.length}>
+                  <div className="flex flex-col items-center gap-3">
+                    <FileQuestion className="h-10 w-10 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">{empty}</p>
+                  </div>
                 </td>
               </tr>
             )}

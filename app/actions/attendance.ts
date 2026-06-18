@@ -2,13 +2,11 @@
 
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
 import { requirePermission } from "@/lib/auth/permissions";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { attendanceRecords, employees } from "@/lib/db/schema";
 import { logAudit } from "@/lib/db/queries/audit";
-import { isOfficeNetwork } from "@/lib/network";
 import { attendanceCorrectionSchema } from "@/lib/validation/attendance";
 
 function today() {
@@ -18,12 +16,6 @@ function today() {
 export async function checkIn() {
   const user = await requireUser();
   requirePermission(user.roles, "attendance");
-
-  const headerList = await headers();
-  const clientIp = headerList.get("x-forwarded-for") ?? headerList.get("x-real-ip") ?? "unknown";
-  if (!isOfficeNetwork(clientIp)) {
-    throw new Error("Attendance can only be marked from the office network.");
-  }
 
   const [employee] = await getDb()
     .select({ id: employees.id })
@@ -57,12 +49,6 @@ export async function checkIn() {
 export async function checkOut() {
   const user = await requireUser();
   requirePermission(user.roles, "attendance");
-
-  const headerList = await headers();
-  const clientIp = headerList.get("x-forwarded-for") ?? headerList.get("x-real-ip") ?? "unknown";
-  if (!isOfficeNetwork(clientIp)) {
-    throw new Error("Attendance can only be marked from the office network.");
-  }
 
   const [employee] = await getDb()
     .select({ id: employees.id })

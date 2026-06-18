@@ -65,22 +65,11 @@ export async function getPipelineBoard() {
   const visibleStages = stageRows.filter(
     (stage) => stage.name.toLowerCase() !== "negotiation",
   );
-  const visibleStageIds = new Set(visibleStages.map((stage) => stage.id));
-  const fallbackStageId =
-    visibleStages.find((stage) => stage.name.toLowerCase() === "proposal")?.id ??
-    visibleStages.at(-1)?.id;
-  const normalizedLeads = leadRows.map((lead) => ({
-    ...lead,
-    stageId:
-      lead.stageId && visibleStageIds.has(lead.stageId)
-        ? lead.stageId
-        : fallbackStageId ?? lead.stageId,
-  }));
 
   return {
     stages: visibleStages.map((stage) => ({
       ...stage,
-      leads: normalizedLeads.filter((lead) => lead.stageId === stage.id),
+      leads: leadRows.filter((lead) => lead.stageId === stage.id),
     })),
   };
 }
@@ -237,7 +226,7 @@ export async function getInvoiceDetail(invoiceId: string) {
 }
 
 export async function getCrmOverview() {
-  const [leadRows, invoiceRows, clientRows, activityRows, notificationRows] =
+  const [leadRows, invoiceRows, clientRows] =
     await Promise.all([
       getDb()
         .select({
@@ -273,24 +262,6 @@ export async function getCrmOverview() {
         .groupBy(invoices.id, clients.name, leads.title)
         .orderBy(desc(invoices.createdAt)),
       getDb().select().from(clients).orderBy(desc(clients.createdAt)),
-      getDb()
-        .select({
-          id: leadActivities.id,
-          type: leadActivities.type,
-          summary: leadActivities.summary,
-          createdAt: leadActivities.createdAt,
-          leadId: leadActivities.leadId,
-          leadTitle: leads.title,
-        })
-        .from(leadActivities)
-        .leftJoin(leads, eq(leadActivities.leadId, leads.id))
-        .orderBy(desc(leadActivities.createdAt))
-        .limit(8),
-      getDb()
-        .select()
-        .from(notificationLogs)
-        .orderBy(desc(notificationLogs.createdAt))
-        .limit(6),
     ]);
 
   const openLeads = leadRows.filter((lead) => lead.status === "open");
@@ -312,8 +283,6 @@ export async function getCrmOverview() {
       (sum, invoice) => sum + Math.max(0, invoice.totalCents - invoice.paidCents),
       0,
     ),
-    recentActivities: activityRows,
-    recentNotifications: notificationRows,
   };
 }
 

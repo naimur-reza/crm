@@ -1,63 +1,76 @@
 import { redirect } from "next/navigation";
-import { desc } from "drizzle-orm";
+import { desc, sql } from "drizzle-orm";
 import { DataTable } from "@/components/data-table";
-import { PageHeader } from "@/components/page-header";
 import { ModalForm } from "@/components/modal-form";
-import { ActionButton } from "@/components/ui/action-button";
+import { Pagination } from "@/components/pagination";
 import { Field, Select } from "@/components/ui/field";
-import { ToastActionForm } from "@/components/ui/toast-action-form";
-import { createEmployee, deactivateEmployee, deleteEmployee } from "@/app/actions/employees";
+import { createEmployee } from "@/app/actions/employees";
+import { buildPagination, getPaginationParams } from "@/lib/pagination";
 import { canAccess } from "@/lib/auth/permissions";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { employees, users } from "@/lib/db/schema";
+import { EmployeeActions } from "./employee-actions";
 
-export default async function EmployeesPage() {
+export default async function EmployeesPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>;
+}) {
   const user = await requireUser();
   if (!canAccess(user.roles, "employees")) redirect("/dashboard");
 
-  const [rows, userRows] = await Promise.all([
-    getDb().select().from(employees).orderBy(desc(employees.createdAt)),
+  const { page, pageSize, offset } = getPaginationParams(await searchParams);
+
+  const [{ count }, rows, userRows] = await Promise.all([
+    getDb()
+      .select({ count: sql<number>`count(*)::int` })
+      .from(employees)
+      .then((r) => r[0]),
+    getDb()
+      .select()
+      .from(employees)
+      .orderBy(desc(employees.createdAt))
+      .limit(pageSize)
+      .offset(offset),
     getDb()
       .select({ id: users.id, name: users.name, email: users.email })
       .from(users),
   ]);
 
+  const pagination = buildPagination(page, pageSize, count);
+
   return (
     <div className="grid gap-6">
-      <PageHeader
-        title="Employees"
-        description="Maintain employee profiles and employment status."
-        action={
-          <ModalForm
-            title="New employee"
-            description="Create an employee profile and optionally link it to a login account."
-            triggerLabel="New employee"
-            action={createEmployee}
-            submitLabel="Create employee"
-            formClassName="grid gap-x-6 gap-y-5 md:grid-cols-2"
-          >
-            <Field label="Full name" name="fullName" required />
-            <Field label="Email" name="email" type="email" required />
-            <Field label="Phone" name="phone" />
-            <Field label="Designation" name="designation" required />
-            <Field label="Joining date" name="joiningDate" type="date" />
-            <Select label="Linked user" name="userId">
-              <option value="">No login account</option>
-              {userRows.map((userRow) => (
-                <option key={userRow.id} value={userRow.id}>
-                  {userRow.name} ({userRow.email})
-                </option>
-              ))}
-            </Select>
-          </ModalForm>
-        }
-      />
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-foreground">Employees</h2>
+        <ModalForm
+          title="Create employee"
+          description="Add a new employee to the organization."
+          triggerLabel="Create employee"
+          action={createEmployee}
+        >
+          <Field name="fullName" label="Full name" required />
+          <Field name="email" label="Email" type="email" required />
+          <Field name="phone" label="Phone" />
+          <Field name="designation" label="Designation" required />
+          <Field name="joiningDate" label="Joining date" type="date" />
+          <Select label="Link user account" name="userId">
+            <option value="">No account</option>
+            {userRows.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name} ({u.email})
+              </option>
+            ))}
+          </Select>
+        </ModalForm>
+      </div>
+
       <DataTable
         headers={["Name", "Email", "Designation", "Status", "Action"]}
         empty="No employees yet."
         rows={rows.map((employee) => [
-          <span key="name" className="font-medium text-slate-950">
+          <span key="name" className="font-medium text-foreground">
             {employee.fullName}
           </span>,
           employee.email,
@@ -65,33 +78,10 @@ export default async function EmployeesPage() {
           <span key="status" className="capitalize">
             {employee.status.replace("_", " ")}
           </span>,
-          <div key="action" className="flex items-center gap-2">
-            {employee.status === "active" ? (
-              <ToastActionForm
-                action={deactivateEmployee}
-                successMessage="Employee deactivated."
-              >
-                <input type="hidden" name="id" value={employee.id} />
-                <ActionButton variant="secondary">Deactivate</ActionButton>
-              </ToastActionForm>
-            ) : (
-              <span className="text-slate-400">Inactive</span>
-            )}
-            <ToastActionForm
-              action={deleteEmployee}
-              successMessage="Employee deleted."
-            >
-              <input type="hidden" name="id" value={employee.id} />
-              <button
-                type="submit"
-                className="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-2.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-100"
-              >
-                Delete
-              </button>
-            </ToastActionForm>
-          </div>,
+          <EmployeeActions key="action" employee={employee} userRows={userRows} />,
         ])}
       />
+      <Pagination {...pagination} />
     </div>
   );
 }

@@ -12,6 +12,7 @@ export type CurrentUser = {
   id: string;
   name: string;
   email: string;
+  avatarUrl: string | null;
   roles: string[];
 };
 
@@ -69,6 +70,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
       id: users.id,
       name: users.name,
       email: users.email,
+      avatarUrl: users.avatarUrl,
       role: roles.name,
     })
     .from(sessions)
@@ -92,6 +94,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     id: rows[0].id,
     name: rows[0].name,
     email: rows[0].email,
+    avatarUrl: rows[0].avatarUrl,
     roles: rows.map((row) => row.role).filter((role): role is string => Boolean(role)),
   };
 }

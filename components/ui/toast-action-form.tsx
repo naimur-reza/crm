@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { formatError } from "@/lib/format-error";
 
 export function ToastActionForm({
   action,
@@ -31,7 +32,7 @@ export function ToastActionForm({
           toast.success(successMessage);
           router.refresh();
         } catch (caught) {
-          toast.error(caught instanceof Error ? caught.message : "Something went wrong.");
+          toast.error(formatError(caught));
         }
       }}
     >

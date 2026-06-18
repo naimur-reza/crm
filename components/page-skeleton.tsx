@@ -1,5 +1,5 @@
 function SkeletonBlock({ className = "" }: { className?: string }) {
-  return <div className={`animate-pulse rounded-lg bg-slate-200 ${className}`} />;
+  return <div className={`animate-pulse rounded-lg bg-muted ${className}`} />;
 }
 
 export function PageSkeleton() {
@@ -14,18 +14,18 @@ export function PageSkeleton() {
       </div>
       <div className="grid gap-4 md:grid-cols-4">
         {[0, 1, 2, 3].map((item) => (
-          <div key={item} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div key={item} className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <SkeletonBlock className="h-4 w-24" />
             <SkeletonBlock className="mt-4 h-8 w-20" />
             <SkeletonBlock className="mt-3 h-3 w-32" />
           </div>
         ))}
       </div>
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+        <div className="border-b border-border bg-muted px-4 py-3">
           <SkeletonBlock className="h-4 w-48" />
         </div>
-        <div className="divide-y divide-slate-100">
+        <div className="divide-y divide-border">
           {[0, 1, 2, 3, 4].map((item) => (
             <div key={item} className="grid gap-4 px-4 py-4 md:grid-cols-5">
               <SkeletonBlock className="h-5 md:col-span-2" />

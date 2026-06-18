@@ -2,6 +2,7 @@ import { DashboardShell } from "@/components/dashboard-shell";
 import type { SidebarGroup, SidebarItem } from "@/components/app-sidebar";
 import { canAccess, type PermissionArea } from "@/lib/auth/permissions";
 import { requireUser } from "@/lib/auth/session";
+import { getSiteSettings } from "@/app/actions/settings";
 
 export default async function DashboardLayout({
   children,
@@ -47,10 +48,17 @@ export default async function DashboardLayout({
     }))
     .filter((group) => group.items.length > 0);
 
+  let logoUrl: string | null = null;
+  try {
+    const settings = await getSiteSettings();
+    logoUrl = settings.logoUrl;
+  } catch {}
+
   return (
     <DashboardShell
       user={user}
       navGroups={visibleGroups}
+      logoUrl={logoUrl}
     >
       {children}
     </DashboardShell>

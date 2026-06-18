@@ -1,21 +1,33 @@
 import { redirect } from "next/navigation";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { addLeadActivity } from "@/app/actions/crm";
 import { DataTable } from "@/components/data-table";
 import { ModalForm } from "@/components/modal-form";
-import { PageHeader } from "@/components/page-header";
+import { Pagination } from "@/components/pagination";
 import { Badge } from "@/components/ui/badge";
 import { Field, Select, TextArea } from "@/components/ui/field";
+import { buildPagination, getPaginationParams } from "@/lib/pagination";
 import { canAccess } from "@/lib/auth/permissions";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { leadActivities, leads } from "@/lib/db/schema";
 
-export default async function ActivitiesPage() {
+export default async function ActivitiesPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>;
+}) {
   const user = await requireUser();
   if (!canAccess(user.roles, "crm")) redirect("/dashboard");
 
-  const [activityRows, leadRows] = await Promise.all([
+  const { page, pageSize, offset } = getPaginationParams(await searchParams);
+
+  const [{ count }, activityRows, leadRows] = await Promise.all([
+    getDb()
+      .select({ count: sql<number>`count(*)::int` })
+      .from(leadActivities)
+      .innerJoin(leads, eq(leadActivities.leadId, leads.id))
+      .then((r) => r[0]),
     getDb()
       .select({
         id: leadActivities.id,
@@ -28,58 +40,56 @@ export default async function ActivitiesPage() {
       })
       .from(leadActivities)
       .innerJoin(leads, eq(leadActivities.leadId, leads.id))
-      .orderBy(desc(leadActivities.createdAt)),
+      .orderBy(desc(leadActivities.createdAt))
+      .limit(pageSize)
+      .offset(offset),
     getDb().select({ id: leads.id, title: leads.title }).from(leads),
   ]);
 
+  const pagination = buildPagination(page, pageSize, count);
+
   return (
     <div className="grid gap-6">
-      <PageHeader
-        title="CRM activities"
-        description="Track calls, notes, meetings, WhatsApp touches, and follow-up reminders."
-        action={
-          <ModalForm
-            title="New activity"
-            description="Attach a CRM activity to a lead."
-            triggerLabel="New activity"
-            action={addLeadActivity}
-            submitLabel="Add activity"
-            formClassName="grid gap-x-6 gap-y-5"
-          >
-            <Select label="Lead" name="leadId" required>
-              <option value="">Choose lead</option>
-              {leadRows.map((lead) => (
-                <option key={lead.id} value={lead.id}>
-                  {lead.title}
-                </option>
-              ))}
-            </Select>
-            <Select label="Type" name="type" defaultValue="note">
-              <option value="call">Call</option>
-              <option value="email">Email</option>
-              <option value="meeting">Meeting</option>
-              <option value="note">Note</option>
-              <option value="whatsapp">WhatsApp</option>
-              <option value="follow_up">Follow-up</option>
-            </Select>
-            <Field label="Due at" name="dueAt" type="datetime-local" />
-            <TextArea label="Summary" name="summary" required />
-          </ModalForm>
-        }
-      />
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-foreground">Activities</h2>
+        <ModalForm
+          title="Log activity"
+          description="Record a new activity for a lead."
+          triggerLabel="Log activity"
+          action={addLeadActivity}
+        >
+          <Select label="Lead" name="leadId" required>
+            <option value="">Choose lead</option>
+            {leadRows.map((lead) => (
+              <option key={lead.id} value={lead.id}>
+                {lead.title}
+              </option>
+            ))}
+          </Select>
+          <Select label="Type" name="type" required>
+            <option value="call">Call</option>
+            <option value="email">Email</option>
+            <option value="meeting">Meeting</option>
+            <option value="note">Note</option>
+            <option value="follow_up">Follow up</option>
+          </Select>
+          <Field name="summary" label="Summary" required />
+          <Field name="dueAt" label="Due at" type="datetime-local" />
+        </ModalForm>
+      </div>
+
       <DataTable
-        headers={["Lead", "Type", "Summary", "Due", "Created"]}
+        headers={["Lead", "Type", "Due"]}
         empty="No CRM activities yet."
         rows={activityRows.map((activity) => [
           activity.leadTitle,
           <Badge key="type" tone="purple">
             {activity.type.replace("_", " ")}
           </Badge>,
-          activity.summary,
           activity.dueAt?.toLocaleString() ?? "-",
-          activity.createdAt.toLocaleString(),
         ])}
       />
+      <Pagination {...pagination} />
     </div>
   );
 }

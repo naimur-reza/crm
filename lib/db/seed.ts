@@ -7,6 +7,8 @@ import { Pool } from "pg";
 import * as schema from "@/lib/db/schema";
 import {
   attendanceRecords,
+  chatGroupMembers,
+  chatGroups,
   clientContacts,
   clientInteractions,
   clients,
@@ -475,7 +477,39 @@ async function main() {
     }
   }
 
-  console.log("Seeded realistic company, HR, task, client, CRM, invoice, payment, and WhatsApp demo data.");
+  const teamGroupName = "Team Chat";
+  const [existingTeamGroup] = await db
+    .select({ id: chatGroups.id })
+    .from(chatGroups)
+    .where(eq(chatGroups.name, teamGroupName))
+    .limit(1);
+
+  let teamGroupId: string;
+  if (existingTeamGroup) {
+    teamGroupId = existingTeamGroup.id;
+  } else {
+    const [group] = await db
+      .insert(chatGroups)
+      .values({ name: teamGroupName, description: "General team discussion.", type: "team", createdBy: userIds["admin@company.test"] })
+      .returning({ id: chatGroups.id });
+    teamGroupId = group.id;
+  }
+
+  const existingMembers = await db
+    .select({ userId: chatGroupMembers.userId })
+    .from(chatGroupMembers)
+    .where(eq(chatGroupMembers.groupId, teamGroupId));
+
+  const existingMemberIds = new Set(existingMembers.map((m) => m.userId));
+  const allUserIds = Object.values(userIds).filter((id) => !existingMemberIds.has(id));
+
+  if (allUserIds.length > 0) {
+    await db.insert(chatGroupMembers).values(
+      allUserIds.map((uid) => ({ groupId: teamGroupId, userId: uid, role: "member" })),
+    );
+  }
+
+  console.log("Seeded realistic company, HR, task, client, CRM, invoice, payment, WhatsApp, and chat demo data.");
   await pool.end();
 }
 

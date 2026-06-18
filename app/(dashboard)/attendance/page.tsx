@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { checkIn, checkOut, correctAttendance } from "@/app/actions/attendance";
 import { DataTable } from "@/components/data-table";
 import { ModalForm } from "@/components/modal-form";
-import { PageHeader, Surface } from "@/components/page-header";
+import { Pagination } from "@/components/pagination";
+import { Surface } from "@/components/page-header";
 import { Field, Select } from "@/components/ui/field";
 import { ToastActionForm } from "@/components/ui/toast-action-form";
+import { buildPagination, getPaginationParams } from "@/lib/pagination";
 import { canAccess } from "@/lib/auth/permissions";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
@@ -48,13 +50,23 @@ function statusMeta(status: string) {
   return map[status as keyof typeof map] ?? map.present;
 }
 
-export default async function AttendancePage() {
+export default async function AttendancePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>;
+}) {
   const user = await requireUser();
   if (!canAccess(user.roles, "attendance")) redirect("/dashboard");
 
   const today = new Date().toISOString().slice(0, 10);
 
-  const [attendanceRows, employeeRows, currentEmployee] = await Promise.all([
+  const { page, pageSize, offset } = getPaginationParams(await searchParams);
+
+  const [{ count }, attendanceRows, employeeRows, currentEmployee, todaysRows] = await Promise.all([
+    getDb()
+      .select({ count: sql<number>`count(*)::int` })
+      .from(attendanceRecords)
+      .then((r) => r[0]),
     getDb()
       .select({
         id: attendanceRecords.id,
@@ -62,13 +74,13 @@ export default async function AttendancePage() {
         checkInAt: attendanceRecords.checkInAt,
         checkOutAt: attendanceRecords.checkOutAt,
         status: attendanceRecords.status,
-        source: attendanceRecords.source,
-        notes: attendanceRecords.notes,
         employeeName: employees.fullName,
       })
       .from(attendanceRecords)
       .innerJoin(employees, eq(attendanceRecords.employeeId, employees.id))
-      .orderBy(desc(attendanceRecords.attendanceDate)),
+      .orderBy(desc(attendanceRecords.attendanceDate))
+      .limit(pageSize)
+      .offset(offset),
     getDb()
       .select({ id: employees.id, name: employees.fullName })
       .from(employees),
@@ -90,12 +102,22 @@ export default async function AttendancePage() {
       )
       .where(eq(employees.userId, user.id))
       .limit(1),
+    getDb()
+      .select({
+        id: attendanceRecords.id,
+        attendanceDate: attendanceRecords.attendanceDate,
+        checkInAt: attendanceRecords.checkInAt,
+        checkOutAt: attendanceRecords.checkOutAt,
+        status: attendanceRecords.status,
+        employeeName: employees.fullName,
+      })
+      .from(attendanceRecords)
+      .innerJoin(employees, eq(attendanceRecords.employeeId, employees.id))
+      .where(eq(attendanceRecords.attendanceDate, today))
+      .orderBy(desc(attendanceRecords.checkInAt)),
   ]);
 
   const myAttendance = currentEmployee[0];
-  const todaysRows = attendanceRows.filter(
-    (record) => record.attendanceDate === today,
-  );
   const presentCount = todaysRows.filter(
     (record) => record.status === "present",
   ).length;
@@ -108,6 +130,8 @@ export default async function AttendancePage() {
   const halfDayCount = todaysRows.filter(
     (record) => record.status === "half_day",
   ).length;
+
+  const pagination = buildPagination(page, pageSize, count);
 
   const correctionModal = (
     <ModalForm
@@ -142,38 +166,33 @@ export default async function AttendancePage() {
 
   return (
     <div className="grid gap-6">
-      <PageHeader
-        title="Attendance"
-        description="Mark your attendance and view team records."
-        action={correctionModal}
-      />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1.5fr]">
         <Surface className="p-6">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             My Attendance
           </p>
-          <h2 className="mt-1 text-xl font-semibold text-slate-950">
+          <h2 className="mt-1 text-xl font-semibold text-foreground">
             {myAttendance?.fullName ?? "No profile linked"}
           </h2>
 
           <div className="mt-6 flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-2xl font-bold text-slate-600">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted text-2xl font-bold text-muted-foreground">
               {myAttendance?.fullName?.charAt(0)?.toUpperCase() ?? "?"}
             </div>
             <div>
-              <p className="text-sm text-slate-500">Today, {today}</p>
+              <p className="text-sm text-muted-foreground">Today, {today}</p>
               {checkedIn ? (
                 <p className="mt-0.5 text-lg font-semibold text-emerald-600">
                   Checked in at {formatTime(myAttendance.checkInAt)}
                 </p>
               ) : (
-                <p className="mt-0.5 text-lg font-semibold text-slate-400">
+                <p className="mt-0.5 text-lg font-semibold text-muted-foreground">
                   Not checked in yet
                 </p>
               )}
               {checkedOut && (
-                <p className="mt-0.5 text-sm text-slate-500">
+                <p className="mt-0.5 text-sm text-muted-foreground">
                   Checked out at {formatTime(myAttendance.checkOutAt)}
                 </p>
               )}
@@ -196,13 +215,13 @@ export default async function AttendancePage() {
                 action={checkOut}
                 successMessage="Checked out successfully."
               >
-                <button className="flex h-14 w-full items-center justify-center gap-3 rounded-xl border-2 border-slate-300 bg-white px-4 text-base font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 active:scale-[0.98]">
+                <button className="flex h-14 w-full items-center justify-center gap-3 rounded-xl border-2 border-border bg-card px-4 text-base font-semibold text-muted-foreground shadow-sm transition hover:bg-accent active:scale-[0.98]">
                   <LogOut className="h-5 w-5" />
                   Check Out
                 </button>
               </ToastActionForm>
             ) : (
-              <div className="rounded-xl bg-slate-50 p-4 text-center text-sm text-slate-500">
+              <div className="rounded-xl bg-muted p-4 text-center text-sm text-muted-foreground">
                 All done for today.
               </div>
             )}
@@ -241,14 +260,14 @@ export default async function AttendancePage() {
               return (
                 <Surface key={item.label} className="p-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-medium text-slate-600">
+                    <p className="text-xs font-medium text-muted-foreground">
                       {item.label}
                     </p>
                     <span className={`rounded-lg p-1.5 ${item.className}`}>
                       <Icon className="h-4 w-4" />
                     </span>
                   </div>
-                  <p className="mt-2 text-2xl font-semibold text-slate-950">
+                  <p className="mt-2 text-2xl font-semibold text-foreground">
                     {item.value}
                   </p>
                 </Surface>
@@ -258,19 +277,19 @@ export default async function AttendancePage() {
 
           <Surface className="p-5">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-base font-semibold text-slate-950">
+              <h2 className="text-base font-semibold text-foreground">
                 Today&apos;s movement
               </h2>
-              <Clock3 className="h-4 w-4 text-slate-400" />
+              <Clock3 className="h-4 w-4 text-muted-foreground" />
             </div>
             <div className="space-y-3">
               {todaysRows.slice(0, 6).map((record) => {
                 const meta = statusMeta(record.status);
                 return (
                   <div key={record.id} className="flex items-center gap-3">
-                    <div className="h-2 w-2 rounded-full bg-slate-950" />
+                    <div className="h-2 w-2 rounded-full bg-foreground" />
                     <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-                      <p className="truncate text-sm font-medium text-slate-950">
+                      <p className="truncate text-sm font-medium text-foreground">
                         {record.employeeName}
                       </p>
                       <span
@@ -279,18 +298,18 @@ export default async function AttendancePage() {
                         {meta.label}
                       </span>
                     </div>
-                    <span className="shrink-0 text-xs text-slate-400">
+                    <span className="shrink-0 text-xs text-muted-foreground">
                       {formatTime(record.checkInAt)}
                     </span>
                   </div>
                 );
               })}
               {!todaysRows.length && (
-                <div className="rounded-lg border border-dashed border-slate-300 p-5 text-center">
-                  <p className="text-sm font-medium text-slate-950">
+                <div className="rounded-lg border border-dashed border-border p-5 text-center">
+                  <p className="text-sm font-medium text-foreground">
                     No records yet
                   </p>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     Check-ins will appear here as the day starts.
                   </p>
                 </div>
@@ -301,60 +320,46 @@ export default async function AttendancePage() {
       </div>
 
       <div>
-        <div className="mb-3">
-          <h2 className="text-lg font-semibold text-slate-950">
-            Attendance ledger
-          </h2>
-          <p className="text-sm text-slate-500">
-            Complete history of all attendance records.
-          </p>
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">
+              Attendance ledger
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Complete history of all attendance records.
+            </p>
+          </div>
+          {correctionModal}
         </div>
         <DataTable
           headers={[
             "Employee",
             "Date",
-            "Session",
             "Status",
-            "Source",
-            "Notes",
           ]}
           empty="No attendance records yet."
           rows={attendanceRows.map((record) => {
             const meta = statusMeta(record.status);
             return [
               <div key="employee">
-                <p className="font-medium text-slate-950">
+                <p className="font-medium text-foreground">
                   {record.employeeName}
                 </p>
-                <p className="text-xs text-slate-500">Attendance record</p>
+                <p className="text-xs text-muted-foreground">Attendance record</p>
               </div>,
-              <span key="date" className="font-mono text-xs text-slate-600">
+              <span key="date" className="font-mono text-xs text-muted-foreground">
                 {record.attendanceDate}
               </span>,
-              <div key="session" className="text-sm">
-                <p className="font-medium text-slate-950">
-                  {formatTime(record.checkInAt)} -{" "}
-                  {formatTime(record.checkOutAt)}
-                </p>
-                <p className="text-xs text-slate-500">Local time</p>
-              </div>,
               <span
                 key="status"
                 className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${meta.className}`}
               >
                 {meta.label}
               </span>,
-              <span key="source" className="capitalize">
-                {record.source}
-              </span>,
-              record.notes ?? (
-                <span key="notes" className="text-slate-400">
-                  No notes
-                </span>
-              ),
             ];
           })}
         />
+        <Pagination {...pagination} />
       </div>
     </div>
   );

@@ -12,7 +12,7 @@ export function Money({ cents }: { cents: number | null | undefined }) {
 }
 
 export function DateText({ value }: { value: string | Date | null | undefined }) {
-  if (!value) return <span className="text-slate-400">No date</span>;
+  if (!value) return <span className="text-muted-foreground">No date</span>;
   const date = typeof value === "string" ? new Date(`${value}T00:00:00`) : value;
   return <span>{date.toLocaleDateString()}</span>;
 }

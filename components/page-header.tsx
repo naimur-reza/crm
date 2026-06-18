@@ -18,25 +18,28 @@ export function PageHeader({
 }) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <div>
+      <div className="min-w-0">
         {backHref ? (
           <Link
             href={backHref}
-            className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-[#3995d2]"
+            className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition hover:text-primary"
           >
             <ArrowLeft className="h-4 w-4" />
             Back
           </Link>
         ) : null}
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
-          {title}
-        </h1>
-        <p className="mt-1 max-w-2xl text-sm text-slate-600">{description}</p>
+        <div className="relative">
+          <div className="absolute bottom-0 left-0 h-1 w-12 rounded-full bg-gradient-to-r from-primary to-[#60b0e0]" />
+          <h1 className="pb-3 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+            {title}
+          </h1>
+        </div>
+        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">{description}</p>
       </div>
       {action ?? (actionHref && actionLabel ? (
         <Link
           href={actionHref}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#3995d2] px-4 text-sm font-semibold text-white transition hover:bg-[#2f80bd]"
+          className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/80 hover:shadow-md"
         >
           <Plus className="h-4 w-4" />
           {actionLabel}
@@ -49,12 +52,26 @@ export function PageHeader({
 export function Surface({
   children,
   className = "",
+  accent,
 }: {
   children: React.ReactNode;
   className?: string;
+  accent?: "green" | "amber" | "red" | "blue" | "purple";
 }) {
+  const accentBorders = {
+    green: "border-l-emerald-500",
+    amber: "border-l-amber-500",
+    red: "border-l-rose-500",
+    blue: "border-l-sky-500",
+    purple: "border-l-violet-500",
+  };
+
   return (
-    <section className={`rounded-xl border border-slate-200 bg-white shadow-sm ${className}`}>
+    <section
+      className={`rounded-xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md ${
+        accent ? `border-l-4 ${accentBorders[accent]}` : ""
+      } ${className}`}
+    >
       {children}
     </section>
   );

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useRef } from "react";
 import { toast } from "sonner";
+import { formatError } from "@/lib/format-error";
 import { updateTaskStatus } from "@/app/actions/tasks";
 
 export function AutoStatusSelect({
@@ -22,7 +23,7 @@ export function AutoStatusSelect({
       toast.success("Task status updated.");
       router.refresh();
     } catch (caught) {
-      toast.error(caught instanceof Error ? caught.message : "Something went wrong.");
+      toast.error(formatError(caught));
     }
   }
 
@@ -33,7 +34,7 @@ export function AutoStatusSelect({
         name="status"
         defaultValue={status}
         onChange={handleChange}
-        className="h-9 rounded-md border border-slate-300 px-2 text-sm"
+        className="h-9 rounded-md border border-border px-2 text-sm"
       >
         <option value="todo">Todo</option>
         <option value="in_progress">In progress</option>

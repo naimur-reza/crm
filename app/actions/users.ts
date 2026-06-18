@@ -8,7 +8,7 @@ import { hashPassword } from "@/lib/auth/password";
 import { getDb } from "@/lib/db";
 import { roles, userRoles, users } from "@/lib/db/schema";
 import { logAudit } from "@/lib/db/queries/audit";
-import { userCreateSchema } from "@/lib/validation/auth";
+import { idSchema, userCreateSchema, userUpdateSchema } from "@/lib/validation/auth";
 
 export async function createUser(formData: FormData) {
   const currentUser = await requireUser();
@@ -56,7 +56,7 @@ export async function deactivateUser(formData: FormData) {
   const currentUser = await requireUser();
   requirePermission(currentUser.roles, "users");
 
-  const id = String(formData.get("id"));
+  const { id } = idSchema.parse({ id: formData.get("id") });
   if (id === currentUser.id) {
     throw new Error("You cannot deactivate your own account.");
   }
@@ -66,5 +66,64 @@ export async function deactivateUser(formData: FormData) {
     .set({ status: "inactive", updatedAt: new Date() })
     .where(eq(users.id, id));
   await logAudit(currentUser.id, "user.deactivated", "user", id);
+  revalidatePath("/users");
+}
+
+export async function updateUser(formData: FormData) {
+  const currentUser = await requireUser();
+  requirePermission(currentUser.roles, "users");
+
+  const parsed = userUpdateSchema.parse({
+    id: formData.get("id"),
+    name: formData.get("name"),
+    email: formData.get("email"),
+    role: formData.get("role"),
+  });
+
+  const [role] = await getDb()
+    .select({ id: roles.id })
+    .from(roles)
+    .where(eq(roles.name, parsed.role))
+    .limit(1);
+
+  if (!role) throw new Error("Invalid role.");
+
+  await getDb()
+    .update(users)
+    .set({ name: parsed.name, email: parsed.email, updatedAt: new Date() })
+    .where(eq(users.id, parsed.id));
+
+  await getDb().delete(userRoles).where(eq(userRoles.userId, parsed.id));
+  await getDb().insert(userRoles).values({ userId: parsed.id, roleId: role.id });
+
+  await logAudit(currentUser.id, "user.updated", "user", parsed.id, { name: parsed.name, email: parsed.email, role: parsed.role });
+  revalidatePath("/users");
+}
+
+export async function deleteUser(formData: FormData) {
+  const currentUser = await requireUser();
+  requirePermission(currentUser.roles, "users");
+
+  const { id } = idSchema.parse({ id: formData.get("id") });
+  if (id === currentUser.id) {
+    throw new Error("You cannot delete your own account.");
+  }
+
+  await getDb().delete(users).where(eq(users.id, id));
+  await logAudit(currentUser.id, "user.deleted", "user", id);
+  revalidatePath("/users");
+}
+
+export async function activateUser(formData: FormData) {
+  const currentUser = await requireUser();
+  requirePermission(currentUser.roles, "users");
+
+  const { id } = idSchema.parse({ id: formData.get("id") });
+
+  await getDb()
+    .update(users)
+    .set({ status: "active", updatedAt: new Date() })
+    .where(eq(users.id, id));
+  await logAudit(currentUser.id, "user.activated", "user", id);
   revalidatePath("/users");
 }

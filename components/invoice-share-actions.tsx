@@ -4,9 +4,10 @@ import { useState, useTransition } from "react";
 import { Download, Mail, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { createInvoiceWhatsAppLink, sendInvoiceEmail } from "@/app/actions/crm";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { ModalForm } from "@/components/modal-form";
-import { ActionButton } from "@/components/ui/action-button";
 import { Field, TextArea } from "@/components/ui/field";
+import { formatError } from "@/lib/format-error";
 
 export function InvoiceShareActions({
   invoiceId,
@@ -29,7 +30,7 @@ export function InvoiceShareActions({
         description="Send this invoice as a PDF attachment to the client."
         triggerLabel="Email invoice"
         triggerIcon={<Mail className="h-4 w-4" />}
-        triggerClassName="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#3995d2] px-4 text-sm font-semibold text-white transition hover:bg-[#2f80bd]"
+        triggerClassName="w-full"
         action={sendInvoiceEmail}
         submitLabel="Send email"
         formClassName="grid gap-x-6 gap-y-5 md:grid-cols-2"
@@ -51,7 +52,8 @@ export function InvoiceShareActions({
         description="Generate a WhatsApp message with an invoice preview link."
         triggerLabel="WhatsApp invoice"
         triggerIcon={<MessageCircle className="h-4 w-4" />}
-        triggerClassName="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-[#3995d2] hover:text-[#3995d2]"
+        triggerVariant="outline"
+        triggerClassName="w-full"
       >
         <form
           className="grid gap-x-6 gap-y-5 md:grid-cols-2"
@@ -65,7 +67,7 @@ export function InvoiceShareActions({
                 toast.success("WhatsApp invoice link generated.");
                 window.open(result.waLink, "_blank", "noopener,noreferrer");
               } catch (caught) {
-                const message = caught instanceof Error ? caught.message : "Something went wrong.";
+                const message = formatError(caught);
                 setError(message);
                 toast.error(message);
               }
@@ -88,10 +90,10 @@ export function InvoiceShareActions({
             </p>
           ) : null}
           <div className="md:col-span-2 flex justify-end">
-            <ActionButton pendingLabel="Generating..." variant="primary">
+            <SubmitButton pendingLabel="Generating...">
               <MessageCircle className="h-4 w-4" />
               Generate link
-            </ActionButton>
+            </SubmitButton>
           </div>
         </form>
       </ModalForm>
@@ -100,7 +102,7 @@ export function InvoiceShareActions({
         href={`/api/crm/invoices/${invoiceId}/pdf`}
         target="_blank"
         rel="noreferrer"
-        className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-[#3995d2] hover:text-[#3995d2]"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-input bg-background px-4 text-sm font-medium text-foreground transition hover:bg-muted h-10"
       >
         <Download className="h-4 w-4" />
         Download PDF
