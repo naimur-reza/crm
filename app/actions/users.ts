@@ -12,7 +12,7 @@ import { idSchema, userCreateSchema, userUpdateSchema } from "@/lib/validation/a
 
 export async function createUser(formData: FormData) {
   const currentUser = await requireUser();
-  requirePermission(currentUser.roles, "users");
+  requirePermission(currentUser, "users");
 
   const parsed = userCreateSchema.parse({
     name: formData.get("name"),
@@ -54,7 +54,7 @@ export async function createUser(formData: FormData) {
 
 export async function deactivateUser(formData: FormData) {
   const currentUser = await requireUser();
-  requirePermission(currentUser.roles, "users");
+  requirePermission(currentUser, "users");
 
   const { id } = idSchema.parse({ id: formData.get("id") });
   if (id === currentUser.id) {
@@ -71,7 +71,7 @@ export async function deactivateUser(formData: FormData) {
 
 export async function updateUser(formData: FormData) {
   const currentUser = await requireUser();
-  requirePermission(currentUser.roles, "users");
+  requirePermission(currentUser, "users");
 
   const parsed = userUpdateSchema.parse({
     id: formData.get("id"),
@@ -102,7 +102,7 @@ export async function updateUser(formData: FormData) {
 
 export async function deleteUser(formData: FormData) {
   const currentUser = await requireUser();
-  requirePermission(currentUser.roles, "users");
+  requirePermission(currentUser, "users");
 
   const { id } = idSchema.parse({ id: formData.get("id") });
   if (id === currentUser.id) {
@@ -116,7 +116,7 @@ export async function deleteUser(formData: FormData) {
 
 export async function activateUser(formData: FormData) {
   const currentUser = await requireUser();
-  requirePermission(currentUser.roles, "users");
+  requirePermission(currentUser, "users");
 
   const { id } = idSchema.parse({ id: formData.get("id") });
 

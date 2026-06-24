@@ -19,11 +19,11 @@ import { Badge } from "@/components/ui/badge";
 import { Surface } from "@/components/page-header";
 
 function cardTone(status: string, stageName: string) {
-  if (status === "won") return { rail: "bg-emerald-500", badge: "green" as const };
-  if (status === "lost") return { rail: "bg-rose-500", badge: "red" as const };
-  if (stageName === "Proposal") return { rail: "bg-amber-500", badge: "amber" as const };
-  if (stageName === "Qualified") return { rail: "bg-violet-500", badge: "blue" as const };
-  if (stageName === "Contacted") return { rail: "bg-sky-500", badge: "blue" as const };
+  if (status === "won") return { rail: "bg-emerald-500 dark:bg-emerald-600", badge: "green" as const };
+  if (status === "lost") return { rail: "bg-rose-500 dark:bg-rose-600", badge: "red" as const };
+  if (stageName === "Proposal") return { rail: "bg-amber-500 dark:bg-amber-600", badge: "amber" as const };
+  if (stageName === "Qualified") return { rail: "bg-violet-500 dark:bg-violet-600", badge: "blue" as const };
+  if (stageName === "Contacted") return { rail: "bg-sky-500 dark:bg-sky-600", badge: "blue" as const };
   return { rail: "bg-muted-foreground/50", badge: "slate" as const };
 }
 

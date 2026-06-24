@@ -5,7 +5,7 @@ import { and, eq, gt, isNull } from "drizzle-orm";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDb } from "@/lib/db";
-import { roles, sessions, userRoles, users } from "@/lib/db/schema";
+import { roles, sessions, userPermissions, userRoles, users } from "@/lib/db/schema";
 import { sessionCookieName } from "@/lib/auth/constants";
 
 export type CurrentUser = {
@@ -14,6 +14,7 @@ export type CurrentUser = {
   email: string;
   avatarUrl: string | null;
   roles: string[];
+  permissions: string[];
 };
 
 function hashSessionToken(token: string) {
@@ -90,12 +91,18 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     return null;
   }
 
+  const permissionRows = await getDb()
+    .select({ permission: userPermissions.permission })
+    .from(userPermissions)
+    .where(eq(userPermissions.userId, rows[0].id));
+
   return {
     id: rows[0].id,
     name: rows[0].name,
     email: rows[0].email,
     avatarUrl: rows[0].avatarUrl,
     roles: rows.map((row) => row.role).filter((role): role is string => Boolean(role)),
+    permissions: permissionRows.map((r) => r.permission),
   };
 }
 

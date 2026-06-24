@@ -14,7 +14,7 @@ export default async function ProfilePage() {
       <div className="flex flex-wrap items-center gap-6 rounded-xl border border-border bg-card p-6 shadow-sm">
         <ProfileAvatarSection currentUrl={user.avatarUrl} userName={user.name} />
         <div className="grid gap-1">
-          <h2 className="text-xl font-semibold text-foreground">{user.name}</h2>
+          <h1 className="text-xl font-semibold text-foreground">{user.name}</h1>
           <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
             <Mail className="h-3.5 w-3.5" />
             {user.email}

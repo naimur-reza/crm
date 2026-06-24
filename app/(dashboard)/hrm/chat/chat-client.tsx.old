@@ -1,0 +1,970 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import {
+  Bell,
+  Check,
+  CheckCheck,
+  ChevronRight,
+  Loader2,
+  LogOut,
+  MessageCircle,
+  MessageSquare,
+  Plus,
+  Send,
+  Trash2,
+  UserMinus,
+  UserPlus,
+  Users,
+  X,
+} from "lucide-react";
+import {
+  sendMessage,
+  getMessages,
+  deleteMessage,
+  getOrCreateDirectMessageGroup,
+  getUserGroups,
+  getGroupMembers,
+  markMessagesRead,
+  getGroupUnreadCounts,
+  getNotifications,
+  getUnreadNotificationCount,
+  markAllNotificationsRead,
+} from "@/app/actions/chat";
+import { Button } from "@/components/ui/button";
+import { ModalForm } from "@/components/modal-form";
+import { Field } from "@/components/ui/field";
+import type { CurrentUser } from "@/lib/auth/session";
+
+type Message = {
+  id: string;
+  type: string;
+  content: string;
+  senderId: string;
+  senderName: string;
+  senderAvatar: string | null;
+  createdAt: Date;
+  read: boolean;
+};
+
+type User = {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl: string | null;
+};
+
+type Group = {
+  id: string;
+  name: string;
+  description: string | null;
+  type: "team" | "group" | "direct";
+  createdAt: Date;
+  memberCount: number;
+  lastMessageContent: string | null;
+  lastMessageAt: string | null;
+};
+
+type Notification = {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  groupId: string | null;
+  actorUserId: string | null;
+  actorName: string | null;
+  readAt: Date | null;
+  createdAt: Date;
+};
+
+const AVATAR_COLORS = [
+  "#3995d2", "#e74c3c", "#2ecc71", "#f39c12",
+  "#9b59b6", "#1abc9c", "#e67e22", "#3498db",
+  "#e91e63", "#00bcd4", "#ff5722", "#607d8b",
+];
+
+function getAvatarColor(name: string) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+function Avatar({ name, url, size = "md" }: { name: string; url: string | null; size?: "sm" | "md" | "lg" }) {
+  const dim = size === "sm" ? "h-7 w-7 text-[11px]" : size === "lg" ? "h-10 w-10 text-sm" : "h-9 w-9 text-xs";
+  if (url) {
+    return <img src={url} alt={name} className={`${dim} shrink-0 rounded-full object-cover ring-2 ring-white dark:ring-gray-800`} />;
+  }
+  return (
+    <span
+      className={`${dim} flex shrink-0 items-center justify-center rounded-full font-bold text-white ring-2 ring-white dark:ring-gray-800`}
+      style={{ backgroundColor: getAvatarColor(name) }}
+    >
+      {name.charAt(0).toUpperCase()}
+    </span>
+  );
+}
+
+function renderContent(text: string, isMine: boolean) {
+  const regex = /@\w[\w\s]*\w/g;
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    parts.push(
+      <span key={match.index} className={`font-semibold ${isMine ? "text-blue-200" : "text-primary"}`}>
+        {match[0]}
+      </span>,
+    );
+    lastIndex = regex.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts.length > 0 ? parts : text;
+}
+
+function formatTime(date: Date) {
+  const d = new Date(date);
+  const now = new Date();
+  const isToday =
+    d.getDate() === now.getDate() &&
+    d.getMonth() === now.getMonth() &&
+    d.getFullYear() === now.getFullYear();
+
+  if (isToday) {
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+  return d.toLocaleDateString([], { day: "numeric", month: "short" });
+}
+
+function formatDateSeparator(date: Date) {
+  const d = new Date(date);
+  const now = new Date();
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  if (d.toDateString() === now.toDateString()) return "Today";
+  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
+  return d.toLocaleDateString([], { day: "numeric", month: "long", year: "numeric" });
+}
+
+export function ChatClient({
+  currentUser,
+  initialGroups,
+  allUsers,
+}: {
+  currentUser: CurrentUser;
+  initialGroups: Group[];
+  allUsers: User[];
+}) {
+  const [groups, setGroups] = useState<Group[]>(initialGroups);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>(initialGroups[0]?.id ?? "");
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const [showMembers, setShowMembers] = useState(false);
+  const [members, setMembers] = useState<{ userId: string; name: string; email: string; avatarUrl: string | null; role: string }[]>([]);
+  const [nonMemberUsers, setNonMemberUsers] = useState<User[]>([]);
+  const [unreadCounts, setUnreadCounts] = useState<Map<string, number>>(new Map());
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
+  const [isNearBottom, setIsNearBottom] = useState(true);
+  const optimisticRef = useRef<Set<string>>(new Set());
+
+  const selectedGroup = groups.find((g) => g.id === selectedGroupId);
+  const isGroupAdmin =
+    selectedGroup?.type !== "direct" &&
+    currentUser.roles?.includes("admin");
+
+  const filteredUsers = allUsers.filter(
+    (u) =>
+      u.name.toLowerCase().includes(mentionQuery.toLowerCase()) &&
+      u.id !== currentUser.id,
+  );
+
+  function loadMessagesForGroup() {
+    if (!selectedGroupId) return;
+    setMessagesLoading(true);
+    getMessages(selectedGroupId, 50)
+      .then(mergeMessages)
+      .catch(() => {})
+      .finally(() => setMessagesLoading(false));
+  }
+
+  function mergeMessages(serverMessages: Message[]) {
+    const serverIds = new Set(serverMessages.map((m) => m.id));
+    setMessages((prev) => [
+      ...serverMessages,
+      ...prev.filter((m) => optimisticRef.current.has(m.id) && !serverIds.has(m.id)),
+    ]);
+  }
+
+  function loadGroupsForUser() {
+    getUserGroups().then(setGroups).catch(() => {});
+  }
+
+  function loadUnreadCounts() {
+    getGroupUnreadCounts().then((counts) => {
+      setUnreadCounts(new Map(counts.map((c) => [c.groupId, c.count])));
+    }).catch(() => {});
+  }
+
+  function loadNotifications() {
+    getNotifications(10).then(setNotifications).catch(() => {});
+    getUnreadNotificationCount().then(setUnreadNotifCount).catch(() => {});
+  }
+
+  useEffect(() => {
+    setMessages([]);
+    loadMessagesForGroup();
+    loadUnreadCounts();
+
+    const interval = setInterval(() => {
+      getMessages(selectedGroupId, 50).then(mergeMessages).catch(() => {});
+      loadUnreadCounts();
+    }, 1500);
+    return () => clearInterval(interval);
+  }, [selectedGroupId]);
+
+  useEffect(() => {
+    loadGroupsForUser();
+    loadNotifications();
+    const notifInterval = setInterval(() => {
+      loadNotifications();
+    }, 15000);
+    return () => clearInterval(notifInterval);
+  }, []);
+
+  useEffect(() => {
+    if (selectedGroupId) {
+      markMessagesRead(selectedGroupId).catch(() => {});
+    }
+  }, [selectedGroupId, messages.length]);
+
+  useEffect(() => {
+    if (isNearBottom) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, isNearBottom]);
+
+  useEffect(() => {
+    if (error) {
+      const t = setTimeout(() => setError(null), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [error]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setShowNotifications(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  function handleScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    const threshold = 100;
+    setIsNearBottom(el.scrollHeight - el.scrollTop - el.clientHeight < threshold);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!input.trim() || sending || !selectedGroupId) return;
+
+    const content = input.trim();
+    const tempId = `opt-${Date.now()}`;
+    const optimisticMsg: Message = {
+      id: tempId,
+      type: "user",
+      content,
+      senderId: currentUser.id,
+      senderName: currentUser.name,
+      senderAvatar: currentUser.avatarUrl,
+      createdAt: new Date(),
+      read: true,
+    };
+
+    optimisticRef.current.add(tempId);
+    setSending(true);
+    setMessages((prev) => [...prev, optimisticMsg]);
+    setInput("");
+    setIsNearBottom(true);
+
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+
+    const formData = new FormData();
+    formData.set("content", content);
+    formData.set("groupId", selectedGroupId);
+
+    try {
+      const result = await sendMessage(formData);
+      optimisticRef.current.delete(tempId);
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? { ...m, id: result.id } : m)),
+      );
+      loadGroupsForUser();
+      loadUnreadCounts();
+    } catch {
+      optimisticRef.current.delete(tempId);
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      setError("Message failed to send");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const value = e.target.value;
+    setInput(value);
+
+    const cursor = e.target.selectionStart ?? value.length;
+    const beforeCursor = value.slice(0, cursor);
+    const atIndex = beforeCursor.lastIndexOf("@");
+
+    if (atIndex !== -1 && (atIndex === 0 || beforeCursor[atIndex - 1] === " ")) {
+      const query = beforeCursor.slice(atIndex + 1).replace(/\s/g, " ");
+      if (query.length <= 20 && !query.includes(" ")) {
+        setShowMentions(true);
+        setMentionQuery(query);
+        setMentionIndex(0);
+        return;
+      }
+    }
+    setShowMentions(false);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (!showMentions) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setMentionIndex((i) => Math.min(i + 1, filteredUsers.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setMentionIndex((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Enter" || e.key === "Tab") {
+      if (filteredUsers.length > 0) {
+        e.preventDefault();
+        insertMention(filteredUsers[mentionIndex]);
+      }
+    } else if (e.key === "Escape") {
+      setShowMentions(false);
+    }
+  }
+
+  function insertMention(user: User) {
+    const cursor = inputRef.current?.selectionStart ?? input.length;
+    const beforeCursor = input.slice(0, cursor);
+    const atIndex = beforeCursor.lastIndexOf("@");
+    const afterCursor = input.slice(cursor);
+    const newValue = input.slice(0, atIndex) + `@${user.name} ` + afterCursor;
+    setInput(newValue);
+    setShowMentions(false);
+    inputRef.current?.focus();
+  }
+
+  async function handleUnsend(messageId: string) {
+    const formData = new FormData();
+    formData.set("messageId", messageId);
+    try {
+      await deleteMessage(formData);
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    } catch {
+      // ignore
+    }
+  }
+
+  async function handleStartDM(otherUserId: string) {
+    try {
+      const result = await getOrCreateDirectMessageGroup(otherUserId);
+      setSelectedGroupId(result.groupId);
+      loadGroupsForUser();
+      loadUnreadCounts();
+    } catch {
+      // ignore
+    }
+  }
+
+  async function openMembers() {
+    if (!selectedGroupId || showMembers) return;
+    try {
+      const m = await getGroupMembers(selectedGroupId);
+      setMembers(m);
+      const memberIds = new Set(m.map((mm) => mm.userId));
+      setNonMemberUsers(allUsers.filter((u) => !memberIds.has(u.id)));
+      setShowMembers(true);
+    } catch {
+      // ignore
+    }
+  }
+
+  async function handleAddMembers(formData: FormData) {
+    formData.set("groupId", selectedGroupId);
+    try {
+      const { addGroupMembers } = await import("@/app/actions/chat");
+      await addGroupMembers(formData);
+      loadMessagesForGroup();
+      await openMembers();
+      loadGroupsForUser();
+    } catch {
+      // ignore
+    }
+  }
+
+  async function handleRemoveMember(targetUserId: string) {
+    if (!selectedGroupId) return;
+    const formData = new FormData();
+    formData.set("groupId", selectedGroupId);
+    formData.set("userId", targetUserId);
+    try {
+      const { removeGroupMember } = await import("@/app/actions/chat");
+      await removeGroupMember(formData);
+      loadMessagesForGroup();
+      await openMembers();
+      loadGroupsForUser();
+    } catch {
+      // ignore
+    }
+  }
+
+  async function handleLeaveGroup() {
+    if (!selectedGroupId) return;
+    if (!window.confirm("Leave this group?")) return;
+    const formData = new FormData();
+    formData.set("groupId", selectedGroupId);
+    try {
+      const { leaveGroup } = await import("@/app/actions/chat");
+      await leaveGroup(formData);
+      setSelectedGroupId(groups.filter((g) => g.id !== selectedGroupId)[0]?.id ?? "");
+      loadGroupsForUser();
+    } catch {
+      // ignore
+    }
+  }
+
+  const teamGroups = groups.filter((g) => g.type === "team" || g.type === "group");
+  const dmGroups = groups.filter((g) => g.type === "direct");
+
+  return (
+    <div className="flex min-h-0 flex-1 bg-gray-50/50 dark:bg-gray-950/50">
+      {/* Group sidebar */}
+      <div className="flex w-72 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-4 py-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold text-white">Messages</h2>
+            <div className="flex items-center gap-1">
+              <div className="relative" ref={notifRef}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => { setShowNotifications(!showNotifications); loadNotifications(); }}
+                  aria-label="Notifications"
+                  className="text-white/80 hover:bg-white/20 hover:text-white"
+                >
+                  <Bell className="h-4 w-4" />
+                  {unreadNotifCount > 0 && (
+                    <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white ring-2 ring-white">
+                      {unreadNotifCount > 99 ? "99+" : unreadNotifCount}
+                    </span>
+                  )}
+                </Button>
+                {showNotifications && (
+                  <div className="absolute left-0 top-full z-50 mt-2 w-80 rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-900">
+                    <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+                      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Notifications</p>
+                      {unreadNotifCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={async () => { await markAllNotificationsRead(); loadNotifications(); }}
+                          className="text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                        >
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
+                    <div className="max-h-80 overflow-y-auto">
+                      {notifications.length === 0 && (
+                        <p className="px-4 py-8 text-center text-sm text-gray-400">No notifications.</p>
+                      )}
+                      {notifications.map((n) => (
+                        <div
+                          key={n.id}
+                          className={`border-b border-gray-100 px-4 py-3 transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900 ${
+                            n.readAt ? "opacity-50" : ""
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <Avatar name={n.actorName || "?"} url={null} size="sm" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                {n.actorName || "System"}
+                                <span className="ml-1 font-normal text-gray-400">· {n.title}</span>
+                              </p>
+                              <p className="mt-0.5 text-xs text-gray-500 line-clamp-2">{n.body}</p>
+                            </div>
+                            {!n.readAt && (
+                              <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-500" />
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {currentUser.roles?.includes("admin") && (
+                <ModalForm
+                  title="Create group"
+                  description="Create a group chat for a project or team."
+                  triggerLabel=""
+                  triggerIcon={<Plus className="h-4 w-4" />}
+                  triggerVariant="ghost"
+                  triggerSize="icon"
+                  triggerTitle="Create group"
+                  triggerClassName="text-white/80 hover:bg-white/20 hover:text-white"
+                  action={async (formData) => {
+                    const { createChatGroup } = await import("@/app/actions/chat");
+                    const result = await createChatGroup(formData);
+                    setSelectedGroupId(result.groupId);
+                    loadGroupsForUser();
+                  }}
+                  submitLabel="Create"
+                >
+                  <Field label="Group name" name="name" required />
+                  <Field label="Description" name="description" />
+                </ModalForm>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto py-2">
+          {teamGroups.length > 0 && (
+            <div className="px-2">
+              <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-widest text-gray-400">
+                Groups
+              </p>
+              {teamGroups.map((group) => {
+                const unread = unreadCounts.get(group.id) ?? 0;
+                const isActive = selectedGroupId === group.id;
+                return (
+                  <button
+                    key={group.id}
+                    onClick={() => setSelectedGroupId(group.id)}
+                    className={`relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all ${
+                      isActive
+                        ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
+                        : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-900"
+                    }`}
+                  >
+                    {isActive && (
+                      <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-blue-600" />
+                    )}
+                    <span
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                        isActive
+                          ? "bg-blue-600 text-white shadow-sm"
+                          : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                      }`}
+                    >
+                      <MessageSquare className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className={`truncate text-sm font-medium ${isActive ? "font-semibold" : ""}`}>
+                          {group.name}
+                        </p>
+                        {unread > 0 && (
+                          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1.5 text-[10px] font-bold text-white shadow-sm">
+                            {unread > 99 ? "99+" : unread}
+                          </span>
+                        )}
+                      </div>
+                      {group.lastMessageContent && (
+                        <p className="truncate text-xs text-gray-400">
+                          {group.lastMessageContent}
+                        </p>
+                      )}
+                    </div>
+                    <ChevronRight className={`h-3.5 w-3.5 shrink-0 transition ${isActive ? "text-blue-500" : "text-gray-300"}`} />
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="px-2 pt-4">
+            <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-widest text-gray-400">
+              Direct Messages
+            </p>
+            {allUsers
+              .filter((u) => u.id !== currentUser.id)
+              .map((user) => {
+                const existingDm = dmGroups.find((g) =>
+                  g.name.toLowerCase() === user.name.toLowerCase(),
+                );
+                const unread = existingDm ? unreadCounts.get(existingDm.id) ?? 0 : 0;
+                const isActive = selectedGroupId === (existingDm?.id ?? "");
+                return (
+                  <button
+                    key={user.id}
+                    onClick={() => {
+                      if (existingDm) {
+                        setSelectedGroupId(existingDm.id);
+                      } else {
+                        handleStartDM(user.id);
+                      }
+                    }}
+                    className={`relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all ${
+                      isActive
+                        ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
+                        : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-900"
+                    }`}
+                  >
+                    {isActive && (
+                      <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-blue-600" />
+                    )}
+                    <Avatar name={user.name} url={user.avatarUrl} size="md" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className={`truncate text-sm ${isActive ? "font-semibold" : "font-medium"}`}>
+                          {user.name}
+                        </p>
+                        {unread > 0 && (
+                          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1.5 text-[10px] font-bold text-white shadow-sm">
+                            {unread > 99 ? "99+" : unread}
+                          </span>
+                        )}
+                      </div>
+                      {existingDm?.lastMessageContent && (
+                        <p className="truncate text-xs text-gray-400">
+                          {existingDm.lastMessageContent}
+                        </p>
+                      )}
+                    </div>
+                    <MessageCircle className="h-3.5 w-3.5 shrink-0 text-gray-300" />
+                  </button>
+                );
+              })}
+          </div>
+        </div>
+      </div>
+
+      {/* Messages area */}
+      {selectedGroup && (
+        <div className="flex min-h-0 flex-1 flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3 shadow-sm dark:border-gray-800 dark:bg-gray-950">
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400">
+                {selectedGroup.type === "direct" ? (
+                  <MessageCircle className="h-4 w-4" />
+                ) : (
+                  <MessageSquare className="h-4 w-4" />
+                )}
+              </span>
+              <div>
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  {selectedGroup.name}
+                </h2>
+                <p className="text-xs text-gray-500">
+                  {selectedGroup.memberCount} member{selectedGroup.memberCount !== 1 ? "s" : ""}
+                  {selectedGroup.description && ` · ${selectedGroup.description}`}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="icon" onClick={openMembers} title="Members" className="text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800">
+                <Users className="h-4 w-4" />
+              </Button>
+              {selectedGroup.type !== "direct" && (
+                <Button variant="ghost" size="icon" onClick={handleLeaveGroup} title="Leave group" className="text-gray-500 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/30">
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Messages */}
+          <div
+            ref={scrollRef}
+            onScroll={handleScroll}
+            className="flex-1 overflow-y-auto bg-gradient-to-b from-gray-50 to-white px-4 py-4 dark:from-gray-950 dark:to-gray-950"
+          >
+            <div className="mx-auto max-w-3xl">
+              {messagesLoading && messages.length === 0 ? (
+                <div className="flex items-center justify-center py-16">
+                  <div className="flex flex-col items-center gap-3">
+                    <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+                    <p className="text-sm text-gray-400">Loading messages...</p>
+                  </div>
+                </div>
+              ) : messages.length === 0 ? (
+                <div className="flex items-center justify-center py-16">
+                  <p className="text-sm text-gray-400">No messages yet. Start the conversation!</p>
+                </div>
+              ) : null}
+              {messages.map((msg, idx) => {
+                // Date separator
+                const prevMsg = messages[idx - 1];
+                const showDateSep =
+                  idx === 0 ||
+                  new Date(msg.createdAt).toDateString() !== new Date(prevMsg?.createdAt ?? 0).toDateString();
+
+                if (msg.type === "system") {
+                  return (
+                    <div key={msg.id}>
+                      {showDateSep && (
+                        <div className="mb-4 mt-2 flex items-center gap-3">
+                          <div className="flex-1 border-t border-gray-200 dark:border-gray-800" />
+                          <span className="shrink-0 text-[11px] font-medium text-gray-400">
+                            {formatDateSeparator(new Date(msg.createdAt))}
+                          </span>
+                          <div className="flex-1 border-t border-gray-200 dark:border-gray-800" />
+                        </div>
+                      )}
+                      <div className="flex justify-center py-2">
+                        <span className="rounded-full bg-gray-100 px-4 py-1.5 text-xs text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                          {msg.content}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                }
+
+                const isMine = msg.senderId === currentUser.id;
+                const nextMsg = messages[idx + 1];
+                const isOptimistic = optimisticRef.current.has(msg.id);
+                const showAvatar = !nextMsg || nextMsg.senderId !== msg.senderId || nextMsg.type === "system";
+
+                return (
+                  <div key={msg.id}>
+                    {showDateSep && (
+                      <div className="mb-4 mt-2 flex items-center gap-3">
+                        <div className="flex-1 border-t border-gray-200 dark:border-gray-800" />
+                        <span className="shrink-0 text-[11px] font-medium text-gray-400">
+                          {formatDateSeparator(new Date(msg.createdAt))}
+                        </span>
+                        <div className="flex-1 border-t border-gray-200 dark:border-gray-800" />
+                      </div>
+                    )}
+                    <div className={`flex gap-2.5 ${isMine ? "flex-row-reverse" : "flex-row"} items-end mb-1.5 animate-in fade-in slide-in-from-bottom-1 duration-200`}>
+                      <div className={`transition-opacity ${showAvatar ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
+                        {showAvatar && (
+                          <Avatar name={msg.senderName} url={msg.senderAvatar} size="sm" />
+                        )}
+                      </div>
+                      <div
+                        className={`group relative min-w-0 max-w-[75%] break-words rounded-2xl px-4 py-2.5 ${
+                          isMine
+                            ? "rounded-br-md bg-blue-600 text-white shadow-sm"
+                            : "rounded-bl-md bg-white text-gray-800 shadow-sm ring-1 ring-gray-100 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-800"
+                        } ${isOptimistic ? "opacity-70" : ""}`}
+                      >
+                        {!isMine && (
+                          <p className="mb-0.5 text-xs font-semibold text-blue-600 dark:text-blue-400">
+                            {msg.senderName}
+                          </p>
+                        )}
+                        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+                          {renderContent(msg.content, isMine)}
+                        </p>
+                        <div className={`mt-1 flex items-center justify-end gap-1 text-[10px] ${isMine ? "text-blue-200" : "text-gray-400"}`}>
+                          <span>{formatTime(new Date(msg.createdAt))}</span>
+                          {isMine && (
+                            msg.read
+                              ? <CheckCheck className="h-3 w-3 text-blue-300" />
+                              : <Check className="h-3 w-3" />
+                          )}
+                          {isOptimistic && (
+                            <span className="ml-1 italic text-blue-200/70">sending...</span>
+                          )}
+                        </div>
+                        {isMine && !isOptimistic && (
+                          <button
+                            type="button"
+                            onClick={() => handleUnsend(msg.id)}
+                            className="absolute right-1 top-1 hidden rounded-md p-1 text-white/40 transition hover:bg-white/20 hover:text-red-300 group-hover:block"
+                            title="Unsend"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div ref={bottomRef} />
+          </div>
+
+          {/* Error toast */}
+          {error && (
+            <div className="mx-4 mb-2 animate-in slide-in-from-bottom-2 fade-in rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600 shadow-sm dark:bg-red-950/40 dark:text-red-400">
+              {error}
+            </div>
+          )}
+
+          {/* Input */}
+          <div className="relative border-t border-gray-200 bg-white px-4 pb-4 pt-3 dark:border-gray-800 dark:bg-gray-950">
+            {showMentions && filteredUsers.length > 0 && (
+              <div className="absolute bottom-full left-4 mb-1 max-h-40 w-72 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900">
+                {filteredUsers.map((user, i) => (
+                  <button
+                    key={user.id}
+                    type="button"
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition ${
+                      i === mentionIndex
+                        ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
+                        : "text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-800"
+                    }`}
+                    onMouseDown={() => insertMention(user)}
+                  >
+                    <Avatar name={user.name} url={user.avatarUrl} size="sm" />
+                    <span>{user.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <form onSubmit={handleSubmit} className="flex items-end gap-2">
+              <div className="relative flex-1">
+                <input
+                  ref={inputRef}
+                  value={input}
+                  onChange={handleInputChange}
+                  onKeyDown={handleKeyDown}
+                  placeholder={
+                    selectedGroup.type === "direct"
+                      ? "Type a message..."
+                      : `Message #${selectedGroup.name}`
+                  }
+                  className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 pr-12 text-sm outline-none transition-all placeholder:text-gray-400 focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:placeholder:text-gray-500 dark:focus:border-blue-500 dark:focus:bg-gray-950"
+                  disabled={sending}
+                />
+                {sending && (
+                  <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-blue-500" />
+                )}
+              </div>
+              <button
+                type="submit"
+                disabled={!input.trim() || sending}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-blue-500 text-white shadow-sm transition-all hover:shadow-md hover:brightness-110 disabled:opacity-50 disabled:shadow-none"
+                aria-label="Send message"
+              >
+                <Send className="h-4 w-4" />
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {!selectedGroup && (
+        <div className="flex flex-1 items-center justify-center">
+          <div className="text-center">
+            <MessageSquare className="mx-auto h-12 w-12 text-gray-300" />
+            <p className="mt-3 text-sm text-gray-400">Select a chat to start messaging</p>
+          </div>
+        </div>
+      )}
+
+      {/* Members panel */}
+      {showMembers && selectedGroup && (
+        <div className="w-64 border-l border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950">
+          <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+              Members ({members.length})
+            </h3>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowMembers(false)}
+              aria-label="Close members panel"
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="overflow-y-auto px-2 py-2">
+            {members.map((m) => (
+              <div
+                key={m.userId}
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-300"
+              >
+                <Avatar name={m.name} url={m.avatarUrl} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{m.name}</p>
+                  <p className="truncate text-xs text-gray-400">
+                    {m.role === "admin" ? "Admin" : "Member"}
+                  </p>
+                </div>
+                {isGroupAdmin && m.role !== "admin" && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveMember(m.userId)}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+                    title="Remove member"
+                  >
+                    <UserMinus className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          {isGroupAdmin && nonMemberUsers.length > 0 && (
+            <div className="border-t border-gray-100 px-4 py-3 dark:border-gray-800">
+              <p className="mb-2 text-xs font-semibold text-gray-500">Add members</p>
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.currentTarget);
+                  await handleAddMembers(formData);
+                  e.currentTarget.reset();
+                }}
+                className="flex flex-col gap-2"
+              >
+                <select
+                  name="memberIds"
+                  multiple
+                  className="h-20 w-full rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
+                >
+                  {nonMemberUsers.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name}
+                    </option>
+                  ))}
+                </select>
+                <Button type="submit" size="xs">
+                  <UserPlus className="mr-1 h-3 w-3" />
+                  Add
+                </Button>
+              </form>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

@@ -22,3 +22,8 @@ export const userUpdateSchema = z.object({
 export const idSchema = z.object({
   id: z.uuid(),
 });
+
+export const permissionGrantSchema = z.object({
+  userId: z.uuid(),
+  permission: z.string().min(1),
+});

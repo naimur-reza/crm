@@ -1,0 +1,2 @@
+ALTER TABLE "site_settings" ADD COLUMN "office_start_time" text DEFAULT '10:00' NOT NULL;--> statement-breakpoint
+ALTER TABLE "site_settings" ADD COLUMN "grace_period_minutes" integer DEFAULT 40 NOT NULL;

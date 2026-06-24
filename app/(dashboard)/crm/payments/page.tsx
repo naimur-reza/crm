@@ -18,7 +18,7 @@ export default async function PaymentsPage({
   searchParams: Promise<Record<string, string>>;
 }) {
   const user = await requireUser();
-  if (!canAccess(user.roles, "crm")) redirect("/dashboard");
+  if (!canAccess(user, "crm_payments")) redirect("/dashboard");
 
   const { page, pageSize, offset } = getPaginationParams(await searchParams);
 
@@ -54,12 +54,16 @@ export default async function PaymentsPage({
   return (
     <div className="grid gap-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-foreground">Payments</h2>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-sky-600">CRM</p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-800">Payments</h1>
+        </div>
         <ModalForm
           title="Record payment"
           description="Record a payment against an invoice."
           triggerLabel="Record payment"
           action={recordPayment}
+          triggerClassName="h-9 rounded-lg border border-sky-200 bg-white/80 px-4 text-xs font-semibold text-sky-700 shadow-sm hover:bg-sky-50"
         >
           <Select label="Invoice" name="invoiceId" required>
             <option value="">Choose invoice</option>
@@ -84,16 +88,29 @@ export default async function PaymentsPage({
         </ModalForm>
       </div>
 
-      <DataTable
-        headers={["Invoice", "Amount", "Date"]}
-        empty="No payments recorded yet."
-        rows={paymentRows.map((payment) => [
-          payment.invoiceNumber,
-          <Money key="amount" cents={payment.amountCents} />,
-          payment.paymentDate,
-        ])}
-      />
-      <Pagination {...pagination} />
+      <div className="rounded-xl border border-sky-100 bg-white/95 shadow-[0_14px_40px_rgba(31,92,132,0.10)]">
+        <div className="border-b border-sky-100 bg-[linear-gradient(90deg,#f1fbff_0%,#ffffff_48%,#f0fff7_100%)] px-5 py-4">
+          <div className="flex items-center gap-2">
+            <span className="flex h-6 w-1 rounded-full bg-sky-400" />
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-sky-600">Records</p>
+              <h2 className="mt-0.5 text-base font-black text-slate-800">Payment History</h2>
+            </div>
+          </div>
+        </div>
+        <div className="p-5">
+          <DataTable
+            headers={["Invoice", "Amount", "Date"]}
+            empty="No payments recorded yet."
+            rows={paymentRows.map((payment) => [
+              payment.invoiceNumber,
+              <Money key="amount" cents={payment.amountCents} />,
+              payment.paymentDate,
+            ])}
+          />
+          <Pagination {...pagination} />
+        </div>
+      </div>
     </div>
   );
 }

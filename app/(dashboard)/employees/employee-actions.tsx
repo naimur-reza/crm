@@ -10,6 +10,7 @@ import { Field, Select } from "@/components/ui/field";
 export function EmployeeActions({
   employee,
   userRows,
+  departmentRows,
 }: {
   employee: {
     id: string;
@@ -18,10 +19,12 @@ export function EmployeeActions({
     phone: string | null;
     designation: string;
     joiningDate: string | null;
+    departmentId: string | null;
     userId: string | null;
     status: string;
   };
   userRows: { id: string; name: string; email: string }[];
+  departmentRows: { id: string; name: string }[];
 }) {
   return (
     <div className="flex items-center gap-2">
@@ -37,6 +40,14 @@ export function EmployeeActions({
         <Field label="Phone" name="phone" defaultValue={employee.phone ?? ""} />
         <Field label="Designation" name="designation" defaultValue={employee.designation} required />
         <Field label="Joining date" name="joiningDate" type="date" defaultValue={employee.joiningDate ?? ""} />
+        <Select label="Department" name="departmentId" defaultValue={employee.departmentId ?? ""}>
+          <option value="">No department</option>
+          {departmentRows.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.name}
+            </option>
+          ))}
+        </Select>
         <Select label="Linked user" name="userId" defaultValue={employee.userId ?? ""}>
           <option value="">No login account</option>
           {userRows.map((userRow) => (

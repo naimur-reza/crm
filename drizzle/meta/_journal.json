@@ -64,6 +64,76 @@
       "when": 1781690355751,
       "tag": "0008_blushing_zemo",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1782043544398,
+      "tag": "0009_burly_stryfe",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784764800000,
+      "tag": "0010_tasks_sort_order",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1782045895774,
+      "tag": "0011_great_siren",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1782122832426,
+      "tag": "0012_chief_leo",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1782123180336,
+      "tag": "0013_fine_chronomancer",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1782129638932,
+      "tag": "0014_military_ser_duncan",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1782130351427,
+      "tag": "0015_exotic_snowbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1782209282799,
+      "tag": "0016_wakeful_spacker_dave",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1782290671862,
+      "tag": "0017_peaceful_deadpool",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1782290982368,
+      "tag": "0018_flashy_white_queen",
+      "breakpoints": true
     }
   ]
 }

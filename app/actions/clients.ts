@@ -13,7 +13,7 @@ const nullable = (value?: string) => (value ? value : null);
 
 export async function createClient(formData: FormData) {
   const user = await requireUser();
-  requirePermission(user.roles, "clients");
+  requirePermission(user, "clients");
 
   const parsed = clientSchema.parse({
     name: formData.get("name"),
@@ -41,7 +41,7 @@ export async function createClient(formData: FormData) {
 
 export async function updateClient(formData: FormData) {
   const user = await requireUser();
-  requirePermission(user.roles, "clients");
+  requirePermission(user, "clients");
 
   const clientId = String(formData.get("clientId"));
   if (!clientId) throw new Error("Client id is required.");
@@ -73,7 +73,7 @@ export async function updateClient(formData: FormData) {
 
 export async function addClientContact(formData: FormData) {
   const user = await requireUser();
-  requirePermission(user.roles, "clients");
+  requirePermission(user, "clients");
 
   const parsed = contactSchema.parse({
     clientId: formData.get("clientId"),
@@ -95,7 +95,7 @@ export async function addClientContact(formData: FormData) {
 
 export async function addClientInteraction(formData: FormData) {
   const user = await requireUser();
-  requirePermission(user.roles, "clients");
+  requirePermission(user, "clients");
 
   const parsed = interactionSchema.parse({
     clientId: formData.get("clientId"),
@@ -112,7 +112,7 @@ export async function addClientInteraction(formData: FormData) {
 
 export async function deleteClient(formData: FormData) {
   const user = await requireUser();
-  requirePermission(user.roles, "clients");
+  requirePermission(user, "clients");
 
   const clientId = String(formData.get("id"));
   if (!clientId) throw new Error("Client id is required.");

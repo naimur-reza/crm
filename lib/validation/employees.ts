@@ -6,6 +6,7 @@ export const employeeSchema = z.object({
   phone: z.string().optional(),
   designation: z.string().min(2, "Designation is required.").trim(),
   joiningDate: z.string().optional(),
+  departmentId: z.uuid().optional().or(z.literal("")),
   userId: z.uuid().optional().or(z.literal("")),
 });
 
@@ -16,6 +17,7 @@ export const employeeUpdateSchema = z.object({
   phone: z.string().optional(),
   designation: z.string().min(2, "Designation is required.").trim(),
   joiningDate: z.string().optional(),
+  departmentId: z.uuid().optional().or(z.literal("")),
   userId: z.uuid().optional().or(z.literal("")),
 });
 

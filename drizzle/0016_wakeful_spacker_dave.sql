@@ -1,0 +1,2 @@
+CREATE INDEX "attendance_date_employee_status_idx" ON "attendance_records" USING btree ("attendance_date","employee_id","status");--> statement-breakpoint
+CREATE INDEX "leave_requests_employee_status_created_idx" ON "leave_requests" USING btree ("employee_id","status","created_at");

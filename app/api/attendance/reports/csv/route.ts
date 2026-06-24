@@ -1,21 +1,10 @@
 import { NextResponse } from "next/server";
-import { and, eq, gte, lte } from "drizzle-orm";
+import { and, eq, gte, inArray, lte } from "drizzle-orm";
 import { canAccess } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { attendanceRecords, departments, employees } from "@/lib/db/schema";
-
-function getMonthBounds(year: number, month: number) {
-  const start = `${year}-${String(month).padStart(2, "0")}-01`;
-  const lastDay = new Date(year, month, 0).getDate();
-  const end = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-  return { start, end };
-}
-
-function formatTime(value: Date | null) {
-  if (!value) return "-";
-  return value.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
+import { formatDate, formatTime12, getMonthBounds, getLocalYear, getLocalMonth } from "@/lib/time";
 
 function escapeCsv(value: string): string {
   if (value.includes(",") || value.includes('"') || value.includes("\n")) {
@@ -26,22 +15,40 @@ function escapeCsv(value: string): string {
 
 export async function GET(request: Request) {
   const user = await getCurrentUser();
-  if (!user || !canAccess(user.roles, "attendance_reports")) {
+  if (!user || !canAccess(user, "attendance_reports")) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
   const url = new URL(request.url);
-  const year = parseInt(url.searchParams.get("year") || String(new Date().getFullYear()));
-  const month = parseInt(url.searchParams.get("month") || String(new Date().getMonth() + 1));
+  const from = url.searchParams.get("from") || "";
+  const to = url.searchParams.get("to") || "";
+  const year = parseInt(url.searchParams.get("year") || String(getLocalYear()));
+  const month = parseInt(url.searchParams.get("month") || String(getLocalMonth()));
   const employeeId = url.searchParams.get("employeeId") || "";
+  const departmentId = url.searchParams.get("departmentId") || "";
   const statusFilter = url.searchParams.get("status") || "";
 
-  const { start, end } = getMonthBounds(year, month);
+  const hasDateRange = !!(from && to);
+  const dateStart = hasDateRange ? from : getMonthBounds(year, month).start;
+  const dateEnd = hasDateRange ? to : getMonthBounds(year, month).end;
 
-  const filters: ReturnType<typeof eq | typeof gte | typeof lte>[] = [
-    gte(attendanceRecords.attendanceDate, start),
-    lte(attendanceRecords.attendanceDate, end),
+  const filters: (ReturnType<typeof eq | typeof gte | typeof lte | typeof inArray>)[] = [
+    gte(attendanceRecords.attendanceDate, dateStart),
+    lte(attendanceRecords.attendanceDate, dateEnd),
   ];
+
+  if (departmentId) {
+    const rows = await getDb()
+      .select({ id: employees.id })
+      .from(employees)
+      .where(eq(employees.departmentId, departmentId));
+    const ids = rows.map((r) => r.id);
+    if (ids.length > 0) {
+      filters.push(inArray(attendanceRecords.employeeId, ids));
+    } else {
+      filters.push(eq(attendanceRecords.employeeId, "00000000-0000-0000-0000-000000000000"));
+    }
+  }
   if (employeeId) filters.push(eq(attendanceRecords.employeeId, employeeId));
   if (statusFilter) {
     filters.push(eq(attendanceRecords.status, statusFilter as "present" | "late" | "absent" | "half_day"));
@@ -72,9 +79,9 @@ export async function GET(request: Request) {
         escapeCsv(r.employeeName),
         escapeCsv(r.employeeDesignation),
         escapeCsv(r.departmentName ?? ""),
-        r.attendanceDate,
-        formatTime(r.checkInAt),
-        formatTime(r.checkOutAt),
+        formatDate(r.attendanceDate),
+        formatTime12(r.checkInAt),
+        formatTime12(r.checkOutAt),
         r.status,
         r.source,
         escapeCsv(r.notes ?? ""),
@@ -83,8 +90,10 @@ export async function GET(request: Request) {
 
   const csv = [header, ...rows].join("\r\n");
 
-  const monthLabel = `${String(month).padStart(2, "0")}-${year}`;
-  const filename = `attendance-report-${monthLabel}.csv`;
+  const label = hasDateRange
+    ? `${from}_to_${to}`
+    : `${String(month).padStart(2, "0")}-${year}`;
+  const filename = `attendance-report-${label}.csv`;
 
   return new NextResponse(csv, {
     headers: {

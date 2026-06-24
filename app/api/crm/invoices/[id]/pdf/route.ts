@@ -18,11 +18,11 @@ export async function GET(
 
   if (!hasValidToken) {
     const user = await getCurrentUser();
-    if (!user || !canAccess(user.roles, "crm")) {
+    if (!user || !canAccess(user, "crm")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const isAdmin = user.roles.includes("admin");
+    const isAdmin = user.roles.includes("admin") || user.permissions.includes("crm");
     if (!isAdmin) {
       const [employee] = await getDb()
         .select({ id: employees.id })

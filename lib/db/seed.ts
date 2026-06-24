@@ -16,6 +16,7 @@ import {
   crmStages,
   departments,
   employees,
+  expenseCategories,
   invoiceItems,
   invoices,
   leadActivities,
@@ -188,7 +189,12 @@ async function main() {
     departmentIds[name] = department.id;
   }
 
+  const adminEmail = process.env.SEED_ADMIN_EMAIL ?? "admin@company.test";
+  const adminName = process.env.SEED_ADMIN_NAME ?? "System Admin";
+  const adminDept = departmentIds["Operations"] ?? Object.values(departmentIds)[0];
+
   const employeeSeed = [
+    [adminName, adminEmail, "+8801711001000", "CEO", "Operations", adminEmail],
     ["Nusrat Rahman", "nusrat@company.test", "+8801711001001", "HR Manager", "HR", "hr@company.test"],
     ["Arif Chowdhury", "arif@company.test", "+8801711001002", "Operations Manager", "Operations", "manager@company.test"],
     ["Maya Karim", "maya@company.test", "+8801711001003", "Sales Lead", "Sales", "sales@company.test"],
@@ -509,7 +515,34 @@ async function main() {
     );
   }
 
-  console.log("Seeded realistic company, HR, task, client, CRM, invoice, payment, WhatsApp, and chat demo data.");
+  // Seed default expense categories
+  const defaultCategories: {
+    name: string;
+    type: "travel" | "office_supplies" | "meals" | "utilities" | "software" | "transportation" | "accommodation" | "entertainment" | "other";
+    description: string;
+  }[] = [
+    { name: "Travel", type: "travel", description: "Airfare, train, bus, and other travel costs" },
+    { name: "Office Supplies", type: "office_supplies", description: "Stationery, printer supplies, and office consumables" },
+    { name: "Meals", type: "meals", description: "Business meals with clients or team" },
+    { name: "Utilities", type: "utilities", description: "Internet, phone, electricity, and other utility bills" },
+    { name: "Software", type: "software", description: "Software licenses, subscriptions, and SaaS tools" },
+    { name: "Transportation", type: "transportation", description: "Local transport, fuel, parking, and tolls" },
+    { name: "Accommodation", type: "accommodation", description: "Hotel and lodging expenses" },
+    { name: "Entertainment", type: "entertainment", description: "Client entertainment and team building" },
+    { name: "Other", type: "other", description: "Miscellaneous expenses" },
+  ];
+  for (const cat of defaultCategories) {
+    const existing = await db
+      .select({ id: expenseCategories.id })
+      .from(expenseCategories)
+      .where(eq(expenseCategories.name, cat.name))
+      .limit(1);
+    if (existing.length === 0) {
+      await db.insert(expenseCategories).values(cat);
+    }
+  }
+
+  console.log("Seeded realistic company, HR, task, client, CRM, invoice, payment, WhatsApp, chat, and expense demo data.");
   await pool.end();
 }
 

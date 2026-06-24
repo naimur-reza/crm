@@ -44,10 +44,10 @@ export function ProfilePasswordForm() {
         />
       </label>
       {state.error && (
-        <p className="text-sm text-rose-600">{state.error}</p>
+        <p className="text-sm text-rose-600 dark:text-rose-400">{state.error}</p>
       )}
       {state.success && (
-        <p className="text-sm text-emerald-600">Password updated successfully.</p>
+        <p className="text-sm text-emerald-600 dark:text-emerald-400">Password updated successfully.</p>
       )}
       <div>
         <SubmitButton pendingLabel="Updating..."><Key className="h-4 w-4" /> Update Password</SubmitButton>

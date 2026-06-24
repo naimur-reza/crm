@@ -1,21 +1,15 @@
-import { redirect } from "next/navigation";
-import { canAccess } from "@/lib/auth/permissions";
-import { requireUser } from "@/lib/auth/session";
-import { getUserGroups, getUsers } from "@/app/actions/chat";
-import { ChatClient } from "./chat-client";
+import { MessageSquare } from "lucide-react";
 
-export default async function ChatPage() {
-  const user = await requireUser();
-  if (!canAccess(user.roles, "chat")) redirect("/dashboard");
-
-  const [groups, users] = await Promise.all([
-    getUserGroups(),
-    getUsers(),
-  ]);
-
+export default function ChatPage() {
   return (
-    <div className="flex h-full flex-col">
-      <ChatClient currentUser={user} initialGroups={groups} allUsers={users} />
+    <div className="flex flex-1 items-center justify-center">
+      <div className="text-center">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-sky-50 ring-1 ring-sky-200">
+          <MessageSquare className="h-8 w-8 text-sky-400" />
+        </div>
+        <p className="mt-4 text-sm font-bold text-slate-800">Select a conversation</p>
+        <p className="mt-1 text-xs font-medium text-slate-400">Choose a chat from the sidebar to start messaging</p>
+      </div>
     </div>
   );
 }

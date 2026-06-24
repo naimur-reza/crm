@@ -6,7 +6,7 @@ import { PipelineBoard } from "./pipeline-board";
 
 export default async function PipelinePage() {
   const user = await requireUser();
-  if (!canAccess(user.roles, "crm")) redirect("/dashboard");
+  if (!canAccess(user, "crm_pipeline")) redirect("/dashboard");
 
   const { stages } = await getPipelineBoard();
 

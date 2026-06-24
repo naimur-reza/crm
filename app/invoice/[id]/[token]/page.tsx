@@ -82,7 +82,7 @@ export default async function PublicInvoicePage({
           </div>
           <div className="flex items-center justify-between gap-4">
             <span className="text-sm text-slate-500">Due</span>
-            <strong className={data.balanceCents > 0 ? "text-rose-600" : "text-emerald-600"}>
+            <strong className={data.balanceCents > 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"}>
               {formatTk(data.balanceCents)}
             </strong>
           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useFormState } from "react-dom";
+import { useActionState } from "react";
 import { updateProfileName } from "@/app/actions/profile";
 import { SubmitButton } from "@/components/ui/submit-button";
 
@@ -16,7 +16,7 @@ async function nameAction(prev: typeof initialState, formData: FormData) {
 }
 
 export function ProfileNameForm({ currentName }: { currentName: string }) {
-  const [state, formAction] = useFormState(nameAction, initialState);
+  const [state, formAction] = useActionState(nameAction, initialState);
 
   function handleSubmit(formData: FormData) {
     formAction(formData);
@@ -35,7 +35,7 @@ export function ProfileNameForm({ currentName }: { currentName: string }) {
         />
       </label>
       {state.error && (
-        <p className="text-sm text-rose-600">{state.error}</p>
+        <p className="text-sm text-rose-600 dark:text-rose-400">{state.error}</p>
       )}
       <div>
         <SubmitButton>Save Name</SubmitButton>

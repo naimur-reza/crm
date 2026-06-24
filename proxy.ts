@@ -9,6 +9,9 @@ const protectedRoutes = [
   "/clients",
   "/crm",
   "/users",
+  "/hrm/chat",
+  "/work-orders",
+  "/settings",
 ];
 
 export function proxy(request: NextRequest) {
@@ -20,10 +23,6 @@ export function proxy(request: NextRequest) {
 
   if (isProtected && !hasSession) {
     return NextResponse.redirect(new URL("/login", request.url));
-  }
-
-  if (pathname === "/login" && hasSession) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   return NextResponse.next();
@@ -38,6 +37,8 @@ export const config = {
     "/clients/:path*",
     "/crm/:path*",
     "/users/:path*",
-    "/login",
+    "/hrm/chat/:path*",
+    "/work-orders/:path*",
+    "/settings/:path*",
   ],
 };

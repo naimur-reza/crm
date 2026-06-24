@@ -11,7 +11,7 @@ import { employeeIdSchema, employeeSchema, employeeUpdateSchema } from "@/lib/va
 
 export async function createEmployee(formData: FormData) {
   const user = await requireUser();
-  requirePermission(user.roles, "employees");
+  requirePermission(user, "employees");
 
   const parsed = employeeSchema.parse({
     fullName: formData.get("fullName"),
@@ -19,6 +19,7 @@ export async function createEmployee(formData: FormData) {
     phone: formData.get("phone") || undefined,
     designation: formData.get("designation"),
     joiningDate: formData.get("joiningDate") || undefined,
+    departmentId: formData.get("departmentId") || "",
     userId: formData.get("userId") || "",
   });
 
@@ -26,6 +27,7 @@ export async function createEmployee(formData: FormData) {
     .insert(employees)
     .values({
       ...parsed,
+      departmentId: parsed.departmentId || null,
       userId: parsed.userId || null,
     })
     .returning({ id: employees.id });
@@ -39,7 +41,7 @@ export async function createEmployee(formData: FormData) {
 
 export async function deactivateEmployee(formData: FormData) {
   const user = await requireUser();
-  requirePermission(user.roles, "employees");
+  requirePermission(user, "employees");
 
   const { id } = employeeIdSchema.parse({ id: formData.get("id") });
   await getDb()
@@ -52,7 +54,7 @@ export async function deactivateEmployee(formData: FormData) {
 
 export async function updateEmployee(formData: FormData) {
   const user = await requireUser();
-  requirePermission(user.roles, "employees");
+  requirePermission(user, "employees");
 
   const parsed = employeeUpdateSchema.parse({
     id: formData.get("id"),
@@ -61,6 +63,7 @@ export async function updateEmployee(formData: FormData) {
     phone: formData.get("phone") || undefined,
     designation: formData.get("designation"),
     joiningDate: formData.get("joiningDate") || undefined,
+    departmentId: formData.get("departmentId") || "",
     userId: formData.get("userId") || "",
   });
 
@@ -72,6 +75,7 @@ export async function updateEmployee(formData: FormData) {
       phone: parsed.phone || null,
       designation: parsed.designation,
       joiningDate: parsed.joiningDate || null,
+      departmentId: parsed.departmentId || null,
       userId: parsed.userId || null,
       updatedAt: new Date(),
     })
@@ -84,7 +88,7 @@ export async function updateEmployee(formData: FormData) {
 
 export async function activateEmployee(formData: FormData) {
   const user = await requireUser();
-  requirePermission(user.roles, "employees");
+  requirePermission(user, "employees");
 
   const { id } = employeeIdSchema.parse({ id: formData.get("id") });
   await getDb()
@@ -98,7 +102,7 @@ export async function activateEmployee(formData: FormData) {
 
 export async function deleteEmployee(formData: FormData) {
   const user = await requireUser();
-  requirePermission(user.roles, "employees");
+  requirePermission(user, "employees");
 
   const { id } = employeeIdSchema.parse({ id: formData.get("id") });
   await getDb().delete(employees).where(eq(employees.id, id));

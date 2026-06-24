@@ -21,6 +21,8 @@ export function DashboardShell({
     return window.localStorage.getItem("sidebar-collapsed") === "true";
   });
 
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   function toggleSidebar() {
     setCollapsed((current) => {
       const next = !current;
@@ -31,14 +33,27 @@ export function DashboardShell({
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <AppSidebar collapsed={collapsed} groups={navGroups} logoUrl={logoUrl} />
+      <AppSidebar
+        collapsed={collapsed}
+        groups={navGroups}
+        logoUrl={logoUrl}
+        isMobileOpen={mobileOpen}
+        onMobileClose={() => setMobileOpen(false)}
+      />
       <div
         className={`flex min-w-0 flex-1 flex-col transition-[padding-left] duration-200 ${
           collapsed ? "lg:pl-20" : "lg:pl-72"
         }`}
       >
-        <TopNav user={user} collapsed={collapsed} onToggleSidebar={toggleSidebar} />
-        <main className="flex-1 p-4 sm:p-6 xl:p-8">{children}</main>
+        <TopNav
+          user={user}
+          collapsed={collapsed}
+          onToggleSidebar={toggleSidebar}
+          onMobileToggle={() => setMobileOpen((v) => !v)}
+        />
+        <main className="flex min-h-0 flex-1 flex-col bg-[radial-gradient(circle_at_top_left,rgba(125,211,252,0.30),transparent_34%),linear-gradient(180deg,#eef7fc_0%,#f8fbfd_46%,#ffffff_100%)] p-3 sm:p-4 lg:p-6 safe-bottom">
+          {children}
+        </main>
       </div>
     </div>
   );

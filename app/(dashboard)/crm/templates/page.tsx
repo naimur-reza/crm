@@ -18,7 +18,7 @@ export default async function TemplatesPage({
   searchParams: Promise<Record<string, string>>;
 }) {
   const user = await requireUser();
-  if (!canAccess(user.roles, "crm")) redirect("/dashboard");
+  if (!canAccess(user, "crm_templates")) redirect("/dashboard");
 
   const { page, pageSize, offset } = getPaginationParams(await searchParams);
 
@@ -46,12 +46,16 @@ export default async function TemplatesPage({
   return (
     <div className="grid gap-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-foreground">Templates</h2>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-sky-600">CRM</p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-800">Templates</h1>
+        </div>
         <ModalForm
           title="Create template"
           description="Add a new notification template for WhatsApp messaging."
           triggerLabel="Create template"
           action={createNotificationTemplate}
+          triggerClassName="h-9 rounded-lg border border-sky-200 bg-white/80 px-4 text-xs font-semibold text-sky-700 shadow-sm hover:bg-sky-50"
         >
           <Field name="key" label="Key" required />
           <Field name="name" label="Name" required />
@@ -59,42 +63,69 @@ export default async function TemplatesPage({
         </ModalForm>
       </div>
 
-      <DataTable
-        headers={["Name", "Key", "Channel", "Actions"]}
-        empty="No templates yet."
-        rows={templates.map((template) => [
-          template.name,
-          <span key="key" className="font-mono text-xs">{template.key}</span>,
-          <Badge key="channel" tone="green">{template.channel}</Badge>,
-          <ModalForm
-            key="edit"
-            title="Edit template"
-            description="Update the WhatsApp template name, key, and dynamic message body."
-            triggerLabel="Edit"
-            action={createNotificationTemplate}
-            submitLabel="Update template"
-            formClassName="grid gap-x-6 gap-y-5"
-          >
-            <Field label="Key" name="key" defaultValue={template.key} required />
-            <Field label="Name" name="name" defaultValue={template.name} required />
-            <TextArea
-              label="Body"
-              name="body"
-              defaultValue={template.body}
-              required
-            />
-          </ModalForm>,
-        ])}
-      />
-      <Pagination {...pagination} />
-      <DataTable
-        headers={["Recipient", "Status"]}
-        empty="No notification logs yet."
-        rows={logs.map((log) => [
-          log.recipientName || log.recipientPhone || "-",
-          <Badge key="status" tone="blue">{log.status}</Badge>,
-        ])}
-      />
+      <div className="rounded-xl border border-sky-100 bg-white/95 shadow-[0_14px_40px_rgba(31,92,132,0.10)]">
+        <div className="border-b border-sky-100 bg-[linear-gradient(90deg,#f1fbff_0%,#ffffff_48%,#f0fff7_100%)] px-5 py-4">
+          <div className="flex items-center gap-2">
+            <span className="flex h-6 w-1 rounded-full bg-sky-400" />
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-sky-600">Templates</p>
+              <h2 className="mt-0.5 text-base font-black text-slate-800">Message Templates</h2>
+            </div>
+          </div>
+        </div>
+        <div className="p-5">
+          <DataTable
+            headers={["Name", "Key", "Channel", "Actions"]}
+            empty="No templates yet."
+            rows={templates.map((template) => [
+              template.name,
+              <span key="key" className="font-mono text-xs">{template.key}</span>,
+              <Badge key="channel" tone="green">{template.channel}</Badge>,
+              <ModalForm
+                key="edit"
+                title="Edit template"
+                description="Update the WhatsApp template name, key, and dynamic message body."
+                triggerLabel="Edit"
+                action={createNotificationTemplate}
+                submitLabel="Update template"
+                formClassName="grid gap-x-6 gap-y-5"
+              >
+                <Field label="Key" name="key" defaultValue={template.key} required />
+                <Field label="Name" name="name" defaultValue={template.name} required />
+                <TextArea
+                  label="Body"
+                  name="body"
+                  defaultValue={template.body}
+                  required
+                />
+              </ModalForm>,
+            ])}
+          />
+          <Pagination {...pagination} />
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-sky-100 bg-white/95 shadow-[0_14px_40px_rgba(31,92,132,0.10)]">
+        <div className="border-b border-sky-100 bg-[linear-gradient(90deg,#f1fbff_0%,#ffffff_48%,#f0fff7_100%)] px-5 py-4">
+          <div className="flex items-center gap-2">
+            <span className="flex h-6 w-1 rounded-full bg-sky-400" />
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-sky-600">Logs</p>
+              <h2 className="mt-0.5 text-base font-black text-slate-800">Notification Logs</h2>
+            </div>
+          </div>
+        </div>
+        <div className="p-5">
+          <DataTable
+            headers={["Recipient", "Status"]}
+            empty="No notification logs yet."
+            rows={logs.map((log) => [
+              log.recipientName || log.recipientPhone || "-",
+              <Badge key="status" tone="blue">{log.status}</Badge>,
+            ])}
+          />
+        </div>
+      </div>
     </div>
   );
 }

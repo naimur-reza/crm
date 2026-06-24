@@ -71,7 +71,7 @@ export function ProfileAvatarSection({
           <form action={removeAvatar}>
             <button
               type="submit"
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-rose-200 bg-card px-3 text-sm font-medium text-rose-600 transition hover:border-rose-300 hover:bg-rose-50"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-rose-200 dark:border-rose-800 bg-card px-3 text-sm font-medium text-rose-600 dark:text-rose-400 transition hover:border-rose-300 dark:hover:border-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
             >
               <Trash2 className="h-4 w-4" />
               Remove

@@ -103,3 +103,8 @@ export const invoiceWhatsAppSchema = z.object({
   recipientPhone: z.string().min(5, "WhatsApp number is required."),
   message: z.string().max(1600, "Message is too long.").optional(),
 });
+
+export const leadInlineActivitySchema = z.object({
+  leadId: z.uuid(),
+  type: z.enum(["call", "email"]),
+});

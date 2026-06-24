@@ -9,6 +9,13 @@ export interface PaginationResult {
   pageSize: number;
   total: number;
   totalPages: number;
+  showingStart: number;
+  showingEnd: number;
+}
+
+export interface SortParams {
+  by: string;
+  order: "asc" | "desc";
 }
 
 export function getPaginationParams(
@@ -21,10 +28,21 @@ export function getPaginationParams(
 }
 
 export function buildPagination(page: number, pageSize: number, total: number): PaginationResult {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const clampedPage = Math.min(page, totalPages);
   return {
-    page,
+    page: clampedPage,
     pageSize,
     total,
-    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    totalPages,
+    showingStart: total === 0 ? 0 : (clampedPage - 1) * pageSize + 1,
+    showingEnd: Math.min(clampedPage * pageSize, total),
   };
+}
+
+export function buildSortParams(searchParams: Record<string, string>): SortParams | null {
+  const by = searchParams.sortBy;
+  if (!by) return null;
+  const order = searchParams.sortOrder === "asc" ? "asc" : "desc";
+  return { by, order };
 }

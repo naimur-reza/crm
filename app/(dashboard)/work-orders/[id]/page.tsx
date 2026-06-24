@@ -52,7 +52,7 @@ export default async function WorkOrderDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const user = await requireUser();
-  if (!canAccess(user.roles, "work_orders")) redirect("/dashboard");
+  if (!canAccess(user, "work_orders")) redirect("/dashboard");
 
   const { id } = await params;
   const { workOrder, invoices } = await getWorkOrderDetail(id);
@@ -65,18 +65,15 @@ export default async function WorkOrderDetailPage({
     <div className="grid gap-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-4">
-          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-600 ring-1 ring-sky-200">
             <FileText className="h-6 w-6" />
           </span>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground font-mono">
-              {workOrder.workOrderNumber}
-            </h1>
-            <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
-              <span>{workOrder.title}</span>
-              <Badge tone={woMeta.tone} icon={WoStatusIcon}>
-                {workOrder.status.replace("_", " ")}
-              </Badge>
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-sky-600">Work Order</p>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-800 font-mono">{workOrder.workOrderNumber}</h1>
+            <div className="mt-1 flex items-center gap-3">
+              <span className="text-sm font-medium text-slate-400">{workOrder.title}</span>
+              <Badge tone={woMeta.tone} icon={WoStatusIcon}>{workOrder.status.replace("_", " ")}</Badge>
             </div>
           </div>
         </div>
@@ -88,14 +85,14 @@ export default async function WorkOrderDetailPage({
             label: "Lead",
             value: workOrder.leadTitle || "—",
             icon: User,
-            tone: "bg-sky-50 text-sky-600",
+            tone: "bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-300",
             link: workOrder.leadId ? `/crm/leads/${workOrder.leadId}` : null,
           },
           {
             label: "Client",
             value: workOrder.clientName || "—",
             icon: Building2,
-            tone: "bg-violet-50 text-violet-600",
+            tone: "bg-violet-50 dark:bg-violet-950/40 text-violet-600 dark:text-violet-300",
             link: workOrder.clientId
               ? `/crm/clients/${workOrder.clientId}`
               : null,
@@ -104,27 +101,27 @@ export default async function WorkOrderDetailPage({
             label: "Owner",
             value: workOrder.ownerName || "—",
             icon: User,
-            tone: "bg-amber-50 text-amber-600",
+            tone: "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-300",
           },
           {
             label: "Value",
             value: <Money cents={workOrder.totalValueCents} />,
             icon: DollarSign,
-            tone: "bg-emerald-50 text-emerald-600",
+            tone: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-300",
           },
         ].map((stat) => {
           const Icon = stat.icon;
           const content = (
-            <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+            <div className="group relative min-h-28 overflow-hidden rounded-xl border border-sky-100 bg-white/90 p-5 shadow-[0_14px_40px_rgba(31,92,132,0.10)]">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                <span className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
                   {stat.label}
                 </span>
                 <span className={`rounded-lg p-1.5 ${stat.tone}`}>
                   <Icon className="h-4 w-4" />
                 </span>
               </div>
-              <p className="mt-3 text-2xl font-semibold text-foreground">
+              <p className="mt-4 text-2xl font-bold leading-none text-slate-800">
                 {stat.value}
               </p>
             </div>
@@ -145,9 +142,9 @@ export default async function WorkOrderDetailPage({
 
       <section className="grid gap-6 xl:grid-cols-[1fr_22rem]">
         <div className="grid gap-4">
-          <Surface className="p-5">
+          <div className="rounded-xl border border-sky-100 bg-white/95 p-5 shadow-[0_14px_40px_rgba(31,92,132,0.10)]">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-semibold text-foreground">Invoices</h2>
+              <h2 className="text-base font-black text-slate-800">Invoices</h2>
               <ModalForm
                 title="Create invoice"
                 description="Add an invoice."
@@ -221,7 +218,7 @@ export default async function WorkOrderDetailPage({
                   <Link
                     key="n"
                     href={`/crm/invoices/${inv.id}`}
-                    className="font-mono font-semibold text-foreground transition hover:text-primary"
+                    className="font-mono text-base font-black text-slate-800 transition hover:text-sky-600"
                   >
                     {inv.invoiceNumber}
                   </Link>,
@@ -235,14 +232,14 @@ export default async function WorkOrderDetailPage({
                 ];
               })}
             />
-          </Surface>
+          </div>
         </div>
 
         <aside className="grid content-start gap-4">
-          <Surface className="p-5">
+          <div className="rounded-xl border border-sky-100 bg-white/95 p-5 shadow-[0_14px_40px_rgba(31,92,132,0.10)]">
             <div className="mb-4 flex items-center gap-2">
-              <ListChecks className="h-4 w-4 text-muted-foreground" />
-              <h2 className="font-semibold text-foreground">Status</h2>
+              <ListChecks className="h-4 w-4 text-sky-400" />
+              <h2 className="text-base font-black text-slate-800">Status</h2>
             </div>
             <ToastActionForm
               action={updateWorkOrderStatus}
@@ -263,12 +260,12 @@ export default async function WorkOrderDetailPage({
                 <SubmitButton>Update</SubmitButton>
               </div>
             </ToastActionForm>
-          </Surface>
+          </div>
 
-          <Surface className="p-5">
+          <div className="rounded-xl border border-sky-100 bg-white/95 p-5 shadow-[0_14px_40px_rgba(31,92,132,0.10)]">
             <div className="mb-4 flex items-center gap-2">
-              <Notebook className="h-4 w-4 text-muted-foreground" />
-              <h2 className="font-semibold text-foreground">Notes</h2>
+              <Notebook className="h-4 w-4 text-sky-400" />
+              <h2 className="text-base font-black text-slate-800">Notes</h2>
             </div>
             <ToastActionForm
               action={updateWorkOrderNotes}
@@ -284,12 +281,12 @@ export default async function WorkOrderDetailPage({
                 <SubmitButton>Save</SubmitButton>
               </div>
             </ToastActionForm>
-          </Surface>
+          </div>
 
-          <Surface className="p-5">
+          <div className="rounded-xl border border-sky-100 bg-white/95 p-5 shadow-[0_14px_40px_rgba(31,92,132,0.10)]">
             <div className="mb-4 flex items-center gap-2">
-              <FileText className="h-4 w-4 text-muted-foreground" />
-              <h2 className="font-semibold text-foreground">Details</h2>
+              <FileText className="h-4 w-4 text-sky-400" />
+              <h2 className="text-base font-black text-slate-800">Details</h2>
             </div>
             <dl className="grid gap-3 text-sm">
               {[
@@ -305,14 +302,14 @@ export default async function WorkOrderDetailPage({
               ].map(([label, value]) => (
                 <div
                   key={String(label)}
-                  className="flex items-center justify-between gap-4 border-b border-border pb-2 last:border-0"
+                  className="flex items-center justify-between gap-4 border-b border-sky-100 pb-2 last:border-0"
                 >
-                  <dt className="text-muted-foreground">{label}</dt>
-                  <dd className="font-medium text-foreground">{value}</dd>
+                  <dt className="text-slate-400">{label}</dt>
+                  <dd className="font-bold text-slate-800">{value}</dd>
                 </div>
               ))}
             </dl>
-          </Surface>
+          </div>
         </aside>
       </section>
     </div>

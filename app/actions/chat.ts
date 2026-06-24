@@ -5,6 +5,8 @@ import { z } from "zod/v4";
 import { requireUser } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { chatGroupMembers, chatGroups, chatMessageReads, chatMessages, notifications, users } from "@/lib/db/schema";
+import { broadcast } from "@/lib/chat/sse-manager";
+import { chatTypingStatus } from "@/lib/db/schema";
 
 const sendMessageSchema = z.string().min(1).max(2000);
 
@@ -49,30 +51,88 @@ export async function sendMessage(formData: FormData) {
     ? await getDb().select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, memberIds))
     : [];
 
-  const notifiedIds = new Set<string>();
-
-  for (const member of allUsers) {
-    if (notifiedIds.has(member.id)) continue;
-    const isMention = mentionedNames.length > 0 && mentionedNames.some((n) => member.name.toLowerCase().includes(n));
-
-    let notifType = group?.type === "direct" ? "dm" : "group_message";
-    if (isMention) notifType = "mention";
-
-    await getDb().insert(notifications).values({
-      userId: member.id,
-      type: notifType,
-      title: isMention ? `You were mentioned` : group?.type === "direct" ? "New message" : `New message in ${group?.name}`,
-      body: parsed.data.length > 120 ? parsed.data.slice(0, 120) + "…" : parsed.data,
-      groupId,
-      actorUserId: user.id,
+  if (allUsers.length > 0) {
+    const notifValues = allUsers.map((member) => {
+      const isMention = mentionedNames.length > 0 && mentionedNames.some((n) => member.name.toLowerCase().includes(n));
+      const notifType = isMention ? "mention" : group?.type === "direct" ? "dm" : "group_message";
+      return {
+        userId: member.id,
+        type: notifType,
+        title: isMention ? "You were mentioned" : group?.type === "direct" ? "New message" : `New message in ${group?.name}`,
+        body: parsed.data.length > 120 ? parsed.data.slice(0, 120) + "…" : parsed.data,
+        groupId,
+        actorUserId: user.id,
+      };
     });
-    notifiedIds.add(member.id);
+    await getDb().insert(notifications).values(notifValues);
   }
+
+  broadcast(groupId, "new_message", {
+    groupId,
+    message: {
+      id: msg.id,
+      type: "user",
+      content: parsed.data,
+      senderId: user.id,
+      senderName: user.name,
+      senderAvatar: user.avatarUrl,
+      createdAt: new Date(),
+      read: false,
+    },
+  });
 
   return { id: msg.id };
 }
 
-export async function getMessages(groupId: string, limit = 50) {
+export async function getMessages(groupId: string, limit = 50, after?: Date) {
+  const user = await requireUser();
+
+  const [membership] = await getDb()
+    .select({ id: chatGroupMembers.userId })
+    .from(chatGroupMembers)
+    .where(and(eq(chatGroupMembers.groupId, groupId), eq(chatGroupMembers.userId, user.id)))
+    .limit(1);
+  if (!membership) throw new Error("You are not a member of this group.");
+
+  const conditions = [eq(chatMessages.groupId, groupId)];
+  if (after) {
+    conditions.push(sql`${chatMessages.createdAt} > ${after}`);
+  }
+
+  const rows = await getDb()
+    .select({
+      id: chatMessages.id,
+      type: chatMessages.type,
+      content: chatMessages.content,
+      senderId: chatMessages.senderId,
+      senderName: users.name,
+      senderAvatar: users.avatarUrl,
+      createdAt: chatMessages.createdAt,
+      read: sql<boolean>`CASE WHEN ${chatMessageReads.messageId} IS NOT NULL THEN true ELSE false END`,
+    })
+    .from(chatMessages)
+    .innerJoin(users, eq(chatMessages.senderId, users.id))
+    .leftJoin(chatMessageReads, and(
+      eq(chatMessageReads.messageId, chatMessages.id),
+      eq(chatMessageReads.userId, user.id),
+    ))
+    .where(and(...conditions))
+    .orderBy(desc(chatMessages.createdAt))
+    .limit(limit);
+
+  return rows.reverse().map((msg) => ({
+    id: msg.id,
+    type: msg.type,
+    content: msg.content,
+    senderId: msg.senderId,
+    senderName: msg.senderName,
+    senderAvatar: msg.senderAvatar,
+    createdAt: msg.createdAt,
+    read: msg.read,
+  }));
+}
+
+export async function getMessagesBefore(groupId: string, before: Date, limit = 50) {
   const user = await requireUser();
 
   const [membership] = await getDb()
@@ -91,26 +151,20 @@ export async function getMessages(groupId: string, limit = 50) {
       senderName: users.name,
       senderAvatar: users.avatarUrl,
       createdAt: chatMessages.createdAt,
+      read: sql<boolean>`CASE WHEN ${chatMessageReads.messageId} IS NOT NULL THEN true ELSE false END`,
     })
     .from(chatMessages)
-    .where(eq(chatMessages.groupId, groupId))
     .innerJoin(users, eq(chatMessages.senderId, users.id))
+    .leftJoin(chatMessageReads, and(
+      eq(chatMessageReads.messageId, chatMessages.id),
+      eq(chatMessageReads.userId, user.id),
+    ))
+    .where(and(
+      eq(chatMessages.groupId, groupId),
+      sql`${chatMessages.createdAt} < ${before}`,
+    ))
     .orderBy(desc(chatMessages.createdAt))
     .limit(limit);
-
-  const messageIds = rows.map((r) => r.id);
-
-  const reads = messageIds.length > 0
-    ? await getDb()
-        .select({
-          messageId: chatMessageReads.messageId,
-          userId: chatMessageReads.userId,
-        })
-        .from(chatMessageReads)
-        .where(and(inArray(chatMessageReads.messageId, messageIds), eq(chatMessageReads.userId, user.id)))
-    : [];
-
-  const readSet = new Set(reads.map((r) => r.messageId));
 
   return rows.reverse().map((msg) => ({
     id: msg.id,
@@ -120,7 +174,7 @@ export async function getMessages(groupId: string, limit = 50) {
     senderName: msg.senderName,
     senderAvatar: msg.senderAvatar,
     createdAt: msg.createdAt,
-    read: readSet.has(msg.id),
+    read: msg.read,
   }));
 }
 
@@ -146,6 +200,16 @@ export async function markMessagesRead(groupId: string) {
   await getDb().insert(chatMessageReads).values(
     unreadMessages.map((m) => ({ messageId: m.id, userId: user.id })),
   ).onConflictDoNothing();
+
+  await getDb()
+    .update(notifications)
+    .set({ readAt: new Date() })
+    .where(and(
+      eq(notifications.userId, user.id),
+      eq(notifications.groupId, groupId),
+      sql`${notifications.readAt} is null`,
+      inArray(notifications.type, ["group_message", "dm", "mention"]),
+    ));
 }
 
 export async function getGroupUnreadCounts() {
@@ -280,6 +344,16 @@ export async function getUserGroups() {
 
   const groupIds = memberGroupIds.map((r) => r.groupId);
 
+  const latestSubquery = getDb()
+    .select({
+      groupId: chatMessages.groupId,
+      maxCreatedAt: sql`MAX(${chatMessages.createdAt})`.as('max_created_at'),
+    })
+    .from(chatMessages)
+    .where(and(inArray(chatMessages.groupId, groupIds), sql`${chatMessages.groupId} is not null`))
+    .groupBy(chatMessages.groupId)
+    .as('latest');
+
   const [groupRows, memberCounts, lastMessages] = await Promise.all([
     getDb().select().from(chatGroups).where(inArray(chatGroups.id, groupIds)),
     getDb()
@@ -297,13 +371,16 @@ export async function getUserGroups() {
         createdAt: chatMessages.createdAt,
       })
       .from(chatMessages)
-      .where(and(inArray(chatMessages.groupId, groupIds), sql`${chatMessages.groupId} is not null`))
-      .orderBy(desc(chatMessages.createdAt)),
+      .innerJoin(latestSubquery, and(
+        eq(chatMessages.groupId, latestSubquery.groupId),
+        eq(chatMessages.createdAt, latestSubquery.maxCreatedAt),
+      ))
+      .where(inArray(chatMessages.groupId, groupIds)),
   ]);
 
   const lastMessageByGroup = new Map<string, typeof lastMessages[0]>();
   for (const msg of lastMessages) {
-    if (msg.groupId && !lastMessageByGroup.has(msg.groupId)) {
+    if (msg.groupId) {
       lastMessageByGroup.set(msg.groupId, msg);
     }
   }
@@ -550,4 +627,171 @@ export async function deleteChatGroup(formData: FormData) {
   if (group.createdBy !== user.id) throw new Error("Only the group creator can delete this group.");
 
   await getDb().delete(chatGroups).where(eq(chatGroups.id, groupId));
+}
+
+export async function sendFileMessage(formData: FormData) {
+  const user = await requireUser();
+  const groupId = formData.get("groupId");
+  const file = formData.get("file") as File | null;
+  const fileName = formData.get("fileName") as string | null;
+
+  if (typeof groupId !== "string" || !groupId) throw new Error("Group ID required.");
+  if (!file || !(file instanceof File) || file.size === 0) throw new Error("File required.");
+  if (file.size > 10 * 1024 * 1024) throw new Error("File too large. Max 10MB.");
+
+  const [membership] = await getDb()
+    .select({ id: chatGroupMembers.userId })
+    .from(chatGroupMembers)
+    .where(and(eq(chatGroupMembers.groupId, groupId), eq(chatGroupMembers.userId, user.id)))
+    .limit(1);
+  if (!membership) throw new Error("You are not a member of this group.");
+
+  const { put } = await import("@vercel/blob");
+  const ext = file.name.split(".").pop() || "bin";
+  const blobPath = `chat/${groupId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const { url } = await put(blobPath, file, { access: "public" });
+
+  const displayName = fileName || file.name;
+  const content = `📎 ${displayName}\n${url}`;
+
+  const [msg] = await getDb()
+    .insert(chatMessages)
+    .values({ senderId: user.id, groupId, content, type: "user" })
+    .returning({ id: chatMessages.id });
+
+  const [group] = await getDb()
+    .select({ type: chatGroups.type, name: chatGroups.name })
+    .from(chatGroups)
+    .where(eq(chatGroups.id, groupId))
+    .limit(1);
+
+  const allMemberIds = await getDb()
+    .select({ userId: chatGroupMembers.userId })
+    .from(chatGroupMembers)
+    .where(eq(chatGroupMembers.groupId, groupId));
+
+  const memberIds = allMemberIds.map((m) => m.userId).filter((id) => id !== user.id);
+
+  const allUsers = memberIds.length > 0
+    ? await getDb().select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, memberIds))
+    : [];
+
+  for (const member of allUsers) {
+    await getDb().insert(notifications).values({
+      userId: member.id,
+      type: group?.type === "direct" ? "dm" : "group_message",
+      title: group?.type === "direct" ? "Sent a file" : `File in ${group?.name}`,
+      body: displayName,
+      groupId,
+      actorUserId: user.id,
+    });
+  }
+
+  broadcast(groupId, "new_message", {
+    groupId,
+    message: {
+      id: msg.id,
+      type: "user",
+      content,
+      senderId: user.id,
+      senderName: user.name,
+      senderAvatar: user.avatarUrl,
+      createdAt: new Date(),
+      read: false,
+    },
+  });
+
+  return { id: msg.id, url };
+}
+
+const typingThrottle = new Map<string, number>();
+
+export async function emitTyping(groupId: string) {
+  const user = await requireUser();
+  const key = `${user.id}:${groupId}`;
+  const now = Date.now();
+  const last = typingThrottle.get(key);
+  if (last && now - last < 1000) return;
+  typingThrottle.set(key, now);
+
+  try {
+    await getDb()
+      .insert(chatTypingStatus)
+      .values({ userId: user.id, groupId, updatedAt: new Date() })
+      .onConflictDoUpdate({ target: [chatTypingStatus.userId, chatTypingStatus.groupId], set: { updatedAt: new Date() } });
+  } catch { /* table may not exist pre-migration */ }
+  broadcast(groupId, "typing", { groupId, userId: user.id, userName: user.name });
+}
+
+export async function emitStopTyping(groupId: string) {
+  const user = await requireUser();
+  try {
+    await getDb().delete(chatTypingStatus).where(and(
+      eq(chatTypingStatus.userId, user.id),
+      eq(chatTypingStatus.groupId, groupId),
+    ));
+  } catch { /* table may not exist pre-migration */ }
+  broadcast(groupId, "stop_typing", { groupId, userId: user.id });
+}
+
+export async function getTypingStatus(groupIds: string[]) {
+  const user = await requireUser();
+  const staleThreshold = new Date(Date.now() - 4000);
+  try {
+    await getDb().delete(chatTypingStatus).where(
+      sql`${chatTypingStatus.updatedAt} < ${staleThreshold}`,
+    );
+  } catch { /* table may not exist pre-migration */ }
+  let rows: { userId: string; userName: string; groupId: string }[] = [];
+  try {
+    rows = await getDb()
+      .select({
+        userId: users.id,
+        userName: users.name,
+        groupId: chatTypingStatus.groupId,
+      })
+      .from(chatTypingStatus)
+      .innerJoin(users, eq(chatTypingStatus.userId, users.id))
+      .where(and(
+        sql`${chatTypingStatus.updatedAt} >= ${staleThreshold}`,
+        sql`${chatTypingStatus.userId} != ${user.id}::uuid`,
+        inArray(chatTypingStatus.groupId, groupIds),
+      ));
+  } catch { /* table may not exist pre-migration */ }
+  return rows;
+}
+
+export async function markMessagesReadSSE(groupId: string) {
+  const user = await requireUser();
+  const unreadMessages = await getDb()
+    .select({ id: chatMessages.id })
+    .from(chatMessages)
+    .leftJoin(chatMessageReads, and(
+      eq(chatMessageReads.messageId, chatMessages.id),
+      eq(chatMessageReads.userId, user.id),
+    ))
+    .where(and(
+      eq(chatMessages.groupId, groupId),
+      eq(chatMessages.type, "user"),
+      sql`${chatMessages.senderId} != ${user.id}::uuid`,
+      sql`${chatMessageReads.messageId} is null`,
+    ));
+
+  if (unreadMessages.length === 0) return;
+
+  await getDb().insert(chatMessageReads).values(
+    unreadMessages.map((m) => ({ messageId: m.id, userId: user.id })),
+  ).onConflictDoNothing();
+
+  await getDb()
+    .update(notifications)
+    .set({ readAt: new Date() })
+    .where(and(
+      eq(notifications.userId, user.id),
+      eq(notifications.groupId, groupId),
+      sql`${notifications.readAt} is null`,
+      inArray(notifications.type, ["group_message", "dm", "mention"]),
+    ));
+
+  broadcast(groupId, "message_read", { groupId, userId: user.id });
 }

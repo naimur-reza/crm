@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { logout } from "@/app/actions/auth";
 import type { CurrentUser } from "@/lib/auth/session";
-import { Bell, PanelLeftClose, PanelLeftOpen, User, LogOut } from "lucide-react";
+import { Bell, PanelLeftClose, PanelLeftOpen, PanelLeft, User, LogOut } from "lucide-react";
 
 function getInitials(name: string) {
   return name
@@ -48,8 +48,13 @@ function NotificationBell() {
       Notification.requestPermission();
     }
     loadNotifs();
-    const interval = setInterval(loadNotifs, 5000);
-    return () => clearInterval(interval);
+    const onVisible = () => { if (document.visibilityState === "visible") loadNotifs(); };
+    document.addEventListener("visibilitychange", onVisible);
+    const interval = setInterval(loadNotifs, 30000);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   useEffect(() => {
@@ -86,7 +91,7 @@ function NotificationBell() {
       >
         <Bell className="h-5 w-5" />
         {unreadCount > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 dark:bg-red-600 px-1 text-[10px] font-bold text-white">
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}
@@ -113,12 +118,23 @@ function NotificationBell() {
             {notifications.length === 0 && (
               <p className="px-4 py-8 text-center text-sm text-muted-foreground">No notifications.</p>
             )}
-            {notifications.map((n: any) => (
-              <div
-                key={n.id}
-                className={`border-b border-border px-4 py-3 transition hover:bg-accent ${n.readAt ? "opacity-60" : ""}`}
-              >
-                <div className="flex items-start gap-3">
+            {notifications.map((n: any) => {
+              const href = n.groupId ? `/hrm/chat/${n.groupId}` : n.type === "task_assigned" ? "/tasks" : n.type === "leave_request" || n.type === "leave_review" ? "/leaves" : null;
+              const handleClick = async () => {
+                if (!n.readAt) {
+                  try {
+                    const { markNotificationRead } = await import("@/app/actions/chat");
+                    const fd = new FormData();
+                    fd.set("id", n.id);
+                    await markNotificationRead(fd);
+                    loadNotifs();
+                  } catch { /* ignore */ }
+                }
+                if (href) window.location.href = href;
+                setShowNotifs(false);
+              };
+              const content = (
+                <div className={`flex items-start gap-3 ${href ? "cursor-pointer" : ""}`}>
                   <Avatar name={n.actorName || "?"} url={null} />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-foreground">
@@ -128,8 +144,20 @@ function NotificationBell() {
                   </div>
                   {!n.readAt && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />}
                 </div>
-              </div>
-            ))}
+              );
+              if (href) {
+                return (
+                  <div key={n.id} onClick={handleClick} className={`border-b border-border px-4 py-3 transition hover:bg-accent ${n.readAt ? "opacity-60" : ""}`}>
+                    {content}
+                  </div>
+                );
+              }
+              return (
+                <div key={n.id} className={`border-b border-border px-4 py-3 ${n.readAt ? "opacity-60" : ""}`}>
+                  {content}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -141,17 +169,27 @@ export function TopNav({
   user,
   collapsed,
   onToggleSidebar,
+  onMobileToggle,
 }: {
   user: CurrentUser;
   collapsed: boolean;
   onToggleSidebar: () => void;
+  onMobileToggle: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   return (
-    <header className="sticky top-0 z-20 flex min-h-16 items-center justify-between border-b border-border bg-background/90 px-4 backdrop-blur sm:px-6">
+    <header className="sticky top-0 z-20 flex min-h-16 items-center justify-between border-b border-border bg-background/90 px-4 backdrop-blur sm:px-6 safe-top">
       <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onMobileToggle}
+          className="flex h-10 w-10 items-center justify-center rounded-lg border border-border text-muted-foreground transition hover:bg-accent lg:hidden"
+          aria-label="Open menu"
+        >
+          <PanelLeft className="h-5 w-5" />
+        </button>
         <button
           type="button"
           onClick={onToggleSidebar}

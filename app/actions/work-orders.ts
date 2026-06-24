@@ -56,7 +56,7 @@ export async function ensureWorkOrderForLead(leadId: string) {
 
 export async function updateWorkOrderStatus(formData: FormData) {
   const user = await requireUser();
-  requirePermission(user.roles, "work_orders");
+  requirePermission(user, "work_orders");
 
   const { workOrderId, status } = parseFormData(formData);
   if (!workOrderId || !status) throw new Error("Missing required fields");
@@ -73,7 +73,7 @@ export async function updateWorkOrderStatus(formData: FormData) {
 
 export async function updateWorkOrderNotes(formData: FormData) {
   const user = await requireUser();
-  requirePermission(user.roles, "work_orders");
+  requirePermission(user, "work_orders");
 
   const { workOrderId, notes } = parseFormData(formData);
   if (!workOrderId) throw new Error("Missing work order id");
@@ -89,7 +89,7 @@ export async function updateWorkOrderNotes(formData: FormData) {
 
 export async function linkInvoiceToWorkOrder(formData: FormData) {
   const user = await requireUser();
-  requirePermission(user.roles, "work_orders");
+  requirePermission(user, "work_orders");
 
   const workOrderId = String(formData.get("workOrderId") ?? "");
   const invoiceId = String(formData.get("invoiceId") ?? "");

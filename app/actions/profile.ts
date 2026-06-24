@@ -80,10 +80,6 @@ export async function uploadAvatar(formData: FormData) {
 
   const ext = file.type.split("/")[1];
   const fileName = `avatar-${user.id}-${Date.now()}.${ext}`;
-  const bytes = Buffer.from(await file.arrayBuffer());
-
-  const { writeFile, mkdir, unlink } = await import("fs/promises");
-  const path = await import("path");
 
   const [existing] = await getDb()
     .select({ avatarUrl: users.avatarUrl })
@@ -91,19 +87,17 @@ export async function uploadAvatar(formData: FormData) {
     .where(eq(users.id, user.id))
     .limit(1);
 
+  const { put, del } = await import("@vercel/blob");
+
   if (existing?.avatarUrl) {
-    try { await unlink(path.join(process.cwd(), "public", existing.avatarUrl)); } catch { /* ignore */ }
+    try { await del(existing.avatarUrl); } catch { /* ignore */ }
   }
 
-  const uploadDir = path.join(process.cwd(), "public", "uploads", "avatars");
-  await mkdir(uploadDir, { recursive: true });
-  await writeFile(path.join(uploadDir, fileName), bytes);
-
-  const avatarUrl = `/uploads/avatars/${fileName}`;
+  const { url } = await put(`avatars/${fileName}`, file, { access: "public" });
 
   await getDb()
     .update(users)
-    .set({ avatarUrl, updatedAt: new Date() })
+    .set({ avatarUrl: url, updatedAt: new Date() })
     .where(eq(users.id, user.id));
 
   await logAudit(user.id, "user.avatar_updated", "user", user.id);
@@ -113,6 +107,17 @@ export async function uploadAvatar(formData: FormData) {
 
 export async function removeAvatar() {
   const user = await requireUser();
+
+  const [existing] = await getDb()
+    .select({ avatarUrl: users.avatarUrl })
+    .from(users)
+    .where(eq(users.id, user.id))
+    .limit(1);
+
+  if (existing?.avatarUrl) {
+    const { del } = await import("@vercel/blob");
+    try { await del(existing.avatarUrl); } catch { /* ignore */ }
+  }
 
   await getDb()
     .update(users)

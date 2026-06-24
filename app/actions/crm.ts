@@ -34,6 +34,7 @@ import {
   invoiceUpdateSchema,
   invoiceWhatsAppSchema,
   leadActivitySchema,
+  leadInlineActivitySchema,
   leadNotesSchema,
   leadProfileSchema,
   leadSchema,
@@ -95,7 +96,7 @@ async function getDefaultPipelineAndStage(stageId?: string) {
 
 export async function createLead(formData: FormData) {
   const user = await requireUser();
-  requirePermission(user.roles, "crm");
+  requirePermission(user, "crm");
 
   const parsed = leadSchema.parse({
     title: formData.get("title"),
@@ -149,7 +150,7 @@ export async function createLead(formData: FormData) {
 
 export async function updateLeadStage(formData: FormData) {
   const user = await requireUser();
-  requirePermission(user.roles, "crm");
+  requirePermission(user, "crm");
 
   const parsed = leadStageSchema.parse({
     leadId: formData.get("leadId"),
@@ -200,7 +201,7 @@ export async function updateLeadStage(formData: FormData) {
 
 export async function updateLeadNotes(formData: FormData) {
   const user = await requireUser();
-  requirePermission(user.roles, "crm");
+  requirePermission(user, "crm");
 
   const parsed = leadNotesSchema.parse({
     leadId: formData.get("leadId"),
@@ -226,7 +227,7 @@ export async function updateLeadNotes(formData: FormData) {
 
 export async function updateLeadProfile(formData: FormData) {
   const user = await requireUser();
-  requirePermission(user.roles, "crm");
+  requirePermission(user, "crm");
 
   const parsed = leadProfileSchema.parse({
     leadId: formData.get("leadId"),
@@ -266,7 +267,7 @@ export async function updateLeadProfile(formData: FormData) {
 
 export async function deleteLead(formData: FormData) {
   const user = await requireUser();
-  requirePermission(user.roles, "crm");
+  requirePermission(user, "crm");
 
   const leadId = String(formData.get("id"));
   if (!leadId) throw new Error("Lead id is required.");
@@ -281,7 +282,7 @@ export async function deleteLead(formData: FormData) {
 
 export async function convertLeadToClient(formData: FormData) {
   const user = await requireUser();
-  requirePermission(user.roles, "crm");
+  requirePermission(user, "crm");
 
   const leadId = String(formData.get("leadId"));
   const [lead] = await getDb().select().from(leads).where(eq(leads.id, leadId)).limit(1);
@@ -323,7 +324,7 @@ export async function convertLeadToClient(formData: FormData) {
 
 export async function addLeadActivity(formData: FormData) {
   const user = await requireUser();
-  requirePermission(user.roles, "crm");
+  requirePermission(user, "crm");
 
   const parsed = leadActivitySchema.parse({
     leadId: formData.get("leadId"),
@@ -344,9 +345,31 @@ export async function addLeadActivity(formData: FormData) {
   updateCrmTags([crmTags.activities, crmTags.leads, crmTags.lead(parsed.leadId)]);
 }
 
+export async function logLeadInlineActivity(formData: FormData) {
+  const user = await requireUser();
+  requirePermission(user, "crm");
+
+  const parsed = leadInlineActivitySchema.parse({
+    leadId: formData.get("leadId"),
+    type: formData.get("type"),
+  });
+  const summary = parsed.type === "call" ? "Phone call logged." : "Email sent.";
+
+  await getDb().insert(leadActivities).values({
+    leadId: parsed.leadId,
+    type: parsed.type,
+    summary,
+    userId: user.id,
+  });
+  await logAudit(user.id, "lead.activity_added", "lead", parsed.leadId);
+  revalidatePath("/crm/activities");
+  revalidatePath("/crm/leads");
+  updateCrmTags([crmTags.activities, crmTags.leads, crmTags.lead(parsed.leadId)]);
+}
+
 export async function createInvoice(formData: FormData) {
   const user = await requireUser();
-  requirePermission(user.roles, "crm");
+  requirePermission(user, "crm");
 
   const parsed = invoiceSchema.parse({
     leadId: formData.get("leadId") || "",
@@ -418,7 +441,7 @@ export async function createInvoice(formData: FormData) {
 
 export async function markInvoiceSent(formData: FormData) {
   const user = await requireUser();
-  requirePermission(user.roles, "crm");
+  requirePermission(user, "crm");
   const invoiceId = String(formData.get("invoiceId"));
   await getDb()
     .update(invoices)
@@ -431,7 +454,7 @@ export async function markInvoiceSent(formData: FormData) {
 
 export async function updateInvoice(formData: FormData) {
   const user = await requireUser();
-  requirePermission(user.roles, "crm");
+  requirePermission(user, "crm");
 
   const parsed = invoiceUpdateSchema.parse({
     invoiceId: formData.get("invoiceId"),
@@ -489,7 +512,7 @@ export async function updateInvoice(formData: FormData) {
 
 export async function deleteInvoice(formData: FormData) {
   const user = await requireUser();
-  requirePermission(user.roles, "crm");
+  requirePermission(user, "crm");
 
   const invoiceId = String(formData.get("id"));
   if (!invoiceId) throw new Error("Invoice id is required.");
@@ -524,7 +547,7 @@ async function refreshInvoicePaymentStatus(invoiceId: string) {
 
 export async function recordPayment(formData: FormData) {
   const user = await requireUser();
-  requirePermission(user.roles, "crm");
+  requirePermission(user, "crm");
 
   const parsed = paymentSchema.parse({
     invoiceId: formData.get("invoiceId"),
@@ -570,7 +593,7 @@ export async function recordPayment(formData: FormData) {
 
 export async function createNotificationTemplate(formData: FormData) {
   const user = await requireUser();
-  requirePermission(user.roles, "crm");
+  requirePermission(user, "crm");
   const parsed = notificationTemplateSchema.parse({
     key: formData.get("key"),
     name: formData.get("name"),
@@ -590,7 +613,7 @@ export async function createNotificationTemplate(formData: FormData) {
 
 export async function generateWhatsAppMessage(formData: FormData) {
   const user = await requireUser();
-  requirePermission(user.roles, "crm");
+  requirePermission(user, "crm");
   const parsed = whatsappLogSchema.parse({
     templateId: formData.get("templateId"),
     leadId: formData.get("leadId") || "",
@@ -660,7 +683,7 @@ export async function generateWhatsAppMessage(formData: FormData) {
 
 export async function sendInvoiceEmail(formData: FormData) {
   const user = await requireUser();
-  requirePermission(user.roles, "crm");
+  requirePermission(user, "crm");
 
   const parsed = invoiceEmailSchema.parse({
     invoiceId: formData.get("invoiceId"),
@@ -710,7 +733,7 @@ export async function sendInvoiceEmail(formData: FormData) {
 
 export async function createInvoiceWhatsAppLink(formData: FormData) {
   const user = await requireUser();
-  requirePermission(user.roles, "crm");
+  requirePermission(user, "crm");
 
   const parsed = invoiceWhatsAppSchema.parse({
     invoiceId: formData.get("invoiceId"),

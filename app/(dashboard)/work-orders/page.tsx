@@ -28,7 +28,7 @@ export default async function WorkOrdersPage(props: {
   searchParams: Promise<Record<string, string>>;
 }) {
   const user = await requireUser();
-  if (!canAccess(user.roles, "work_orders")) redirect("/dashboard");
+  if (!canAccess(user, "work_orders")) redirect("/dashboard");
 
   const sp = await props.searchParams;
   const statusFilter = sp.status || "";
@@ -100,6 +100,11 @@ export default async function WorkOrdersPage(props: {
   return (
     <div className="grid gap-6">
 
+      <div>
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-sky-600">Operations</p>
+        <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-800">Work Orders</h1>
+      </div>
+
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {[
           {
@@ -107,41 +112,44 @@ export default async function WorkOrdersPage(props: {
             value: <Money cents={totalValueCents} />,
             helper: `${stats.totalCount} orders`,
             icon: Wrench,
-            tone: "bg-sky-50 text-sky-700",
+            tone: "bg-sky-50 text-sky-700 ring-sky-100",
           },
           {
             label: "Pending",
             value: pendingCount,
             helper: "Awaiting start",
-            ...statusMeta.pending,
+            icon: CircleDashed,
+            tone: "bg-amber-50 text-amber-700 ring-amber-100",
           },
           {
             label: "In Progress",
             value: inProgressCount,
             helper: "Active orders",
-            ...statusMeta.in_progress,
+            icon: ListChecks,
+            tone: "bg-cyan-50 text-cyan-700 ring-cyan-100",
           },
           {
             label: "Completed",
             value: completedCount,
             helper: "Fulfilled orders",
-            ...statusMeta.completed,
+            icon: CheckCircle2,
+            tone: "bg-emerald-50 text-emerald-700 ring-emerald-100",
           },
         ].map((card) => {
           const Icon = card.icon;
           return (
-            <Surface key={card.label} className="p-5" accent={"accent" in card ? (card as typeof card & { accent: string }).accent as "green" | "amber" | "red" | "blue" | "purple" | undefined : undefined}>
+            <div key={card.label} className="group relative min-h-32 overflow-hidden rounded-xl border border-sky-100 bg-white/90 p-5 shadow-[0_14px_40px_rgba(31,92,132,0.10)] transition hover:shadow-[0_18px_48px_rgba(31,92,132,0.16)]">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">{card.label}</p>
-                  <p className="mt-3 text-2xl font-semibold text-foreground">{card.value}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">{card.helper}</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{card.label}</p>
+                  <p className="mt-4 text-4xl font-bold leading-none text-slate-800">{card.value}</p>
+                  <p className="mt-3 text-xs font-medium text-slate-400">{card.helper}</p>
                 </div>
-                <span className={`rounded-xl p-2 ${card.tone}`}>
+                <span className={`rounded-xl p-2 ring-1 ${card.tone}`}>
                   <Icon className="h-5 w-5" />
                 </span>
               </div>
-            </Surface>
+            </div>
           );
         })}
       </section>
@@ -149,89 +157,102 @@ export default async function WorkOrdersPage(props: {
       <WorkOrderFilters status={statusFilter} search={searchFilter} />
 
       <section>
-        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gradient-to-r from-muted to-card">
-                <th className="sticky top-0 z-10 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Work Order</th>
-                <th className="sticky top-0 z-10 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Lead / Client</th>
-                <th className="sticky top-0 z-10 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</th>
-                <th className="sticky top-0 z-10 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Value</th>
-                <th className="sticky top-0 z-10 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Created</th>
-                <th className="sticky top-0 z-10 px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-16 text-center">
-                    <div className="flex flex-col items-center gap-3">
-                      <Wrench className="h-10 w-10 text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground">
-                        {statusFilter || searchFilter
-                          ? "No work orders match your filters."
-                          : "No work orders yet. They are created automatically when a lead is marked as Won."}
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                rows.map((row, index) => {
-                  const meta = statusMeta[row.status] ?? statusMeta.pending;
-                  const StatusIcon = meta.icon;
-                  return (
-                    <tr
-                      key={row.id}
-                      className={`align-top transition ${
-                        index % 2 === 0 ? "bg-card" : "bg-muted/50"
-                      } hover:bg-blue-50/40`}
-                    >
-                      <td className="px-4 py-3">
-                        <div className="grid gap-1">
-                          <Link
-                            href={`/work-orders/${row.id}`}
-                            className="font-mono text-sm font-semibold text-foreground transition hover:text-primary"
-                          >
-                            {row.workOrderNumber}
-                          </Link>
-                          <span className="text-xs text-muted-foreground">{row.title}</span>
+        <div className="rounded-xl border border-sky-100 bg-white/95 shadow-[0_14px_40px_rgba(31,92,132,0.10)]">
+          <div className="border-b border-sky-100 bg-[linear-gradient(90deg,#f1fbff_0%,#ffffff_48%,#f0fff7_100%)] px-5 py-4">
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-1 rounded-full bg-sky-400" />
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-sky-600">Records</p>
+                <h2 className="mt-0.5 text-base font-black text-slate-800">All Work Orders</h2>
+              </div>
+            </div>
+          </div>
+          <div className="p-5">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-sky-50/50">
+                    <th className="sticky top-0 z-10 px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.14em] text-sky-600">Work Order</th>
+                    <th className="sticky top-0 z-10 px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.14em] text-sky-600">Lead / Client</th>
+                    <th className="sticky top-0 z-10 px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.14em] text-sky-600">Status</th>
+                    <th className="sticky top-0 z-10 px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.14em] text-sky-600">Value</th>
+                    <th className="sticky top-0 z-10 px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.14em] text-sky-600">Created</th>
+                    <th className="sticky top-0 z-10 px-4 py-3"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-sky-100">
+                  {rows.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-16 text-center">
+                        <div className="flex flex-col items-center gap-3">
+                          <Wrench className="h-10 w-10 text-sky-300" />
+                          <p className="text-sm text-sky-500">
+                            {statusFilter || searchFilter
+                              ? "No work orders match your filters."
+                              : "No work orders yet. They are created automatically when a lead is marked as Won."}
+                          </p>
                         </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="grid gap-1">
-                          <span className="font-medium text-foreground">
-                            {row.clientName || row.leadTitle || "—"}
-                          </span>
-                          {row.leadCompanyName ? (
-                            <span className="text-xs text-muted-foreground">{row.leadCompanyName}</span>
-                          ) : null}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge tone={meta.tone} icon={StatusIcon}>{statusLabel(row.status)}</Badge>
-                      </td>
-                      <td className="px-4 py-3">
-                        <Money cents={row.totalValueCents} />
-                      </td>
-                      <td className="px-4 py-3">
-                        <DateText value={row.createdAt} />
-                      </td>
-                      <td className="px-4 py-3">
-                        <Link
-                          href={`/work-orders/${row.id}`}
-                          className="inline-flex h-8 items-center justify-center gap-1 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground transition hover:bg-primary/80"
-                        >
-                          Open <ArrowUpRight className="h-3.5 w-3.5" />
-                        </Link>
                       </td>
                     </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                  ) : (
+                    rows.map((row, index) => {
+                      const meta = statusMeta[row.status] ?? statusMeta.pending;
+                      const StatusIcon = meta.icon;
+                      return (
+                        <tr
+                          key={row.id}
+                          className={`align-top transition ${
+                            index % 2 === 0 ? "bg-white" : "bg-sky-50/30"
+                          } hover:bg-sky-50`}
+                        >
+                          <td className="px-4 py-3">
+                            <div className="grid gap-1">
+                              <Link
+                                href={`/work-orders/${row.id}`}
+                                className="font-mono text-sm font-semibold text-slate-800 transition hover:text-sky-600"
+                              >
+                                {row.workOrderNumber}
+                              </Link>
+                              <span className="text-xs text-slate-400">{row.title}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="grid gap-1">
+                              <span className="font-medium text-slate-800">
+                                {row.clientName || row.leadTitle || "—"}
+                              </span>
+                              {row.leadCompanyName ? (
+                                <span className="text-xs text-slate-400">{row.leadCompanyName}</span>
+                              ) : null}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge tone={meta.tone} icon={StatusIcon}>{statusLabel(row.status)}</Badge>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Money cents={row.totalValueCents} />
+                          </td>
+                          <td className="px-4 py-3">
+                            <DateText value={row.createdAt} />
+                          </td>
+                          <td className="px-4 py-3">
+                            <Link
+                              href={`/work-orders/${row.id}`}
+                              className="inline-flex h-8 items-center justify-center gap-1 rounded-lg border border-sky-200 bg-white/80 px-3 text-xs font-semibold text-sky-700 shadow-sm hover:bg-sky-50"
+                            >
+                              Open <ArrowUpRight className="h-3.5 w-3.5" />
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <Pagination {...pagination} />
+          </div>
         </div>
-        <Pagination {...pagination} />
       </section>
     </div>
   );
