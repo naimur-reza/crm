@@ -30,7 +30,7 @@ export function PageHeader({
         ) : null}
         <div className="relative">
           <div className="absolute bottom-0 left-0 h-1 w-12 rounded-full bg-gradient-to-r from-primary to-[#60b0e0]" />
-          <h1 className="pb-3 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+          <h1 className="pb-3 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
             {title}
           </h1>
         </div>
@@ -39,7 +39,7 @@ export function PageHeader({
       {action ?? (actionHref && actionLabel ? (
         <Link
           href={actionHref}
-          className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/80 hover:shadow-md"
+          className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/80 hover:shadow-md active:scale-[0.97] sm:w-auto w-full"
         >
           <Plus className="h-4 w-4" />
           {actionLabel}

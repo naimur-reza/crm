@@ -145,7 +145,7 @@ export function CategoriesClient({
       )}
 
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto hide-scrollbar">
           <table className="min-w-full divide-y divide-border text-sm">
             <thead>
               <tr className="bg-muted">

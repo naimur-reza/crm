@@ -195,7 +195,7 @@ export function ChatView({ groupId, initialMessages }: Props) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="shrink-0 flex items-center justify-between border-b border-sky-100 bg-[linear-gradient(90deg,#f1fbff_0%,#ffffff_48%,#f0fff7_100%)] px-4 py-4 shadow-[0_14px_40px_rgba(31,92,132,0.06)]">
+      <div className="shrink-0 flex items-center justify-between border-b border-sky-100 bg-[linear-gradient(90deg,#f1fbff_0%,#ffffff_48%,#f0fff7_100%)] px-3 py-2 shadow-[0_14px_40px_rgba(31,92,132,0.06)] sm:px-4 sm:py-4">
         <div className="flex items-center gap-3">
           <button
             type="button"

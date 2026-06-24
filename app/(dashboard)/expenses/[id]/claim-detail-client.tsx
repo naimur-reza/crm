@@ -216,7 +216,7 @@ export function ClaimDetailClient({
           {/* Expense Items */}
           <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
             <h3 className="mb-4 text-sm font-semibold text-foreground">Expense Items</h3>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto hide-scrollbar">
               <table className="min-w-full divide-y divide-border text-sm">
                 <thead>
                   <tr className="bg-muted">

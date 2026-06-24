@@ -35,7 +35,7 @@ export function WorkOrderFilters({
             name="search"
             defaultValue={search}
             placeholder="Number, title, lead, client..."
-            className="h-11 w-64 rounded-lg border border-border bg-card pl-9 pr-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+            className="h-11 w-64 max-w-full rounded-lg border border-border bg-card pl-9 pr-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
           />
         </div>
       </div>

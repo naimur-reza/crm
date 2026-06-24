@@ -130,7 +130,7 @@ export function TaskFilters({
                   onChange={(e) => handleSearchChange(e.target.value)}
                   onKeyDown={handleSearchKeyDown}
                   placeholder="Search tasks..."
-                  className="h-9 w-56 rounded-lg border border-sky-200 bg-white/80 px-8 pr-3 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:ring-2 focus:ring-sky-200"
+                  className="h-9 w-56 max-w-full rounded-lg border border-sky-200 bg-white/80 px-8 pr-3 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:ring-2 focus:ring-sky-200"
                 />
               </div>
             </div>

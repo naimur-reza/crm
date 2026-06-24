@@ -57,7 +57,7 @@ export default async function LoginPage() {
 
       <div className="relative mx-auto flex w-full max-w-6xl flex-col lg:flex-row">
         <div className="flex flex-1 flex-col items-center justify-center px-4 py-12 text-center sm:px-8 sm:py-16 lg:items-start lg:text-left">
-          <div className="max-w-sm ">
+          <div className="max-w-sm mx-auto md:mx-0">
             {logoUrl ? (
               <div className="bg-white p-2 rounded-2xl shadow-[0_8px_32px_rgba(31,92,132,0.18)] ring-1 ring-white/20 mb-6 flex items-center justify-center h-28 w-40">
                 <img

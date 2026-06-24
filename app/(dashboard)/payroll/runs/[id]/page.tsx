@@ -170,7 +170,7 @@ export default async function PayrollRunDetailPage({
             </div>
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto hide-scrollbar">
           <table className="min-w-full divide-y divide-slate-100 text-sm">
             <thead>
               <tr className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">

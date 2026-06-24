@@ -168,7 +168,7 @@ export default async function WorkOrdersPage(props: {
             </div>
           </div>
           <div className="p-5">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto hide-scrollbar">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-sky-50/50">

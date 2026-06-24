@@ -97,7 +97,7 @@ function NotificationBell() {
         )}
       </button>
       {showNotifs && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-80 rounded-xl border border-border bg-card shadow-2xl">
+        <div className="absolute right-0 top-full z-50 mt-2 w-80 max-sm:max-w-[calc(100vw-16px)] max-sm:right-2 rounded-xl border border-border bg-card shadow-2xl">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <p className="text-sm font-semibold text-foreground">Notifications</p>
             {unreadCount > 0 && (
@@ -180,7 +180,7 @@ export function TopNav({
   const menuRef = useRef<HTMLDivElement>(null);
 
   return (
-    <header className="sticky top-0 z-20 flex min-h-16 items-center justify-between border-b border-border bg-background/90 px-4 backdrop-blur sm:px-6 safe-top">
+    <header className="sticky top-0 z-20 flex min-h-14 items-center justify-between border-b border-border bg-background/90 px-3 backdrop-blur sm:min-h-16 sm:px-6 safe-top">
       <div className="flex items-center gap-3">
         <button
           type="button"
