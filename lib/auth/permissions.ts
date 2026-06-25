@@ -35,6 +35,7 @@ export const permissions = {
   payroll_runs: ["admin", "hr"],
   ai: ["admin", "manager", "sales", "hr"],
   expenses: ["admin", "hr", "manager", "employee"],
+  reports: ["admin", "hr", "manager", "sales"],
 } satisfies Record<string, RoleName[]>;
 
 const crmSubAreas = [

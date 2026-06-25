@@ -53,7 +53,13 @@ export default async function DashboardLayout({
       items: [
         { href: "/work-orders", label: "Work Orders", area: "work_orders", iconName: "workOrders" },
         { href: "/tasks", label: "Tasks", area: "tasks", iconName: "tasks" },
-        { href: "/attendance/reports", label: "Reports", area: "attendance_reports", iconName: "reports" },
+        { href: "/attendance/reports", label: "Attendance Reports", area: "attendance_reports", iconName: "calendarDays" },
+      ],
+    },
+    {
+      label: "Analytics",
+      items: [
+        { href: "/reports", label: "Reports", area: "reports", iconName: "reports" },
       ],
     },
     {
