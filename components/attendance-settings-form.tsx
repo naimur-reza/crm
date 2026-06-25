@@ -28,30 +28,26 @@ export function AttendanceSettingsForm({
   }
 
   return (
-    <div className="grid gap-6">
-      <div className="flex items-center gap-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50">
-          <Clock className="h-4 w-4 text-amber-600" />
-        </div>
-        <div>
-          <h3 className="text-base font-semibold text-foreground">Late Attendance</h3>
-        </div>
+    <div className="grid gap-4">
+      <div className="flex items-center gap-2">
+        <Clock className="h-4 w-4 text-amber-600" />
+        <h2 className="text-sm font-semibold text-foreground">Late Attendance</h2>
       </div>
-      <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-4">
-        <div className="grid gap-2">
-          <Label htmlFor="officeStartTime">Office Start Time</Label>
+      <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
+        <div className="grid gap-1.5">
+          <Label htmlFor="officeStartTime" className="text-xs">Office Start Time</Label>
           <input
             id="officeStartTime"
             name="officeStartTime"
             type="time"
             value={startTime}
             onChange={(e) => setStartTime(e.target.value)}
-            className="h-10 w-36 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
+            className="h-9 w-32 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
             required
           />
         </div>
-        <div className="grid gap-2">
-          <Label htmlFor="gracePeriodMinutes">Grace Period (minutes)</Label>
+        <div className="grid gap-1.5">
+          <Label htmlFor="gracePeriodMinutes" className="text-xs">Grace Period (min)</Label>
           <input
             id="gracePeriodMinutes"
             name="gracePeriodMinutes"
@@ -60,7 +56,7 @@ export function AttendanceSettingsForm({
             max={240}
             value={grace}
             onChange={(e) => setGrace(Number(e.target.value))}
-            className="h-10 w-28 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
+            className="h-9 w-24 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
             required
           />
         </div>
